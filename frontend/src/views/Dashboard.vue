@@ -40,7 +40,7 @@
         </div>
       </div>
 
-      <!-- 突出显示的问答组件（智能查询）- 最显眼位置 -->
+      <!-- 核心问答组件 -->
       <div class="question-section">
         <div class="question-header">
           <h3 class="question-title">智能问答 · 经验提炼</h3>
@@ -79,7 +79,7 @@
           </div>
           <div class="card-value">57 <span class="unit">个</span></div>
           <div class="card-desc">覆盖内蒙古全部贫困县</div>
-          <div class="card-trend positive">
+          <div class="card-trend">
             <i class="iconfont icon-arrow-up"></i>
             <span>100% 脱贫率</span>
           </div>
@@ -92,7 +92,7 @@
           </div>
           <div class="card-value">12,846 <span class="unit">份</span></div>
           <div class="card-desc">涵盖干部、村民、企业家等</div>
-          <div class="card-trend positive">
+          <div class="card-trend">
             <i class="iconfont icon-arrow-up"></i>
             <span>23.5% 年增长</span>
           </div>
@@ -105,7 +105,7 @@
           </div>
           <div class="card-value">89 <span class="unit">种</span></div>
           <div class="card-desc">产业扶贫、易地搬迁等</div>
-          <div class="card-trend positive">
+          <div class="card-trend">
             <i class="iconfont icon-arrow-up"></i>
             <span>15.2% 新增</span>
           </div>
@@ -118,7 +118,7 @@
           </div>
           <div class="card-value">326 <span class="unit">个</span></div>
           <div class="card-desc">政策效果量化分析</div>
-          <div class="card-trend positive">
+          <div class="card-trend">
             <i class="iconfont icon-arrow-up"></i>
             <span>31.8% 年增长</span>
           </div>
@@ -254,23 +254,24 @@ export default {
 </script>
 
 <style scoped>
-/* 全局样式 */
+/* 全局样式 - 统一红色主题 */
 .app-container {
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: #fdf5f4; /* 浅红色背景，增强统一感 */
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  color: #333;
 }
 
-/* 导航栏样式 */
+/* 导航栏样式 - 深红色主色调 */
 .navbar {
-  background-color: #c0392b;
+  background-color: #b32415; /* 主红色：深色调，庄重专业 */
   color: white;
   padding: 0 24px;
   height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(179, 36, 21, 0.2);
   position: relative;
   z-index: 10;
 }
@@ -352,11 +353,11 @@ export default {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #666;
+  color: #888;
 }
 
 .breadcrumb .active {
-  color: #c0392b;
+  color: #b32415; /* 面包屑当前页红色高亮 */
   font-weight: 500;
 }
 
@@ -365,36 +366,37 @@ export default {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #666;
+  color: #888;
 }
 
 .date-range select {
   padding: 6px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #e0b4af; /* 红色系边框 */
   border-radius: 4px;
   background-color: white;
   cursor: pointer;
   transition: border-color 0.3s;
+  color: #333;
 }
 
 .date-range select:focus {
   outline: none;
-  border-color: #c0392b;
+  border-color: #b32415; /* 聚焦时红色边框 */
 }
 
-/* 突出显示的问答组件样式 - 核心修改部分 */
+/* 核心问答组件 - 统一红色主题 */
 .question-section {
-  background: linear-gradient(135deg, #c0392b 0%, #d35400 100%);
+  background-color: #b32415; /* 与导航栏一致的主红色 */
   border-radius: 16px;
   padding: 32px;
   margin-bottom: 32px;
-  box-shadow: 0 8px 24px rgba(192, 57, 43, 0.2);
+  box-shadow: 0 8px 24px rgba(179, 36, 21, 0.2);
   color: white;
   position: relative;
   overflow: hidden;
 }
 
-/* 装饰元素 */
+/* 装饰元素 - 红色系渐变 */
 .question-section::before {
   content: '';
   position: absolute;
@@ -460,7 +462,7 @@ export default {
 }
 
 .question-icon {
-  color: #c0392b;
+  color: #b32415; /* 图标红色，与主题一致 */
   font-size: 20px;
   margin-left: 12px;
 }
@@ -480,7 +482,7 @@ export default {
 }
 
 .question-btn {
-  background-color: #c0392b;
+  background-color: #8c190d; /* 深一级红色按钮 */
   color: white;
   border: none;
   border-radius: 6px;
@@ -493,9 +495,9 @@ export default {
 }
 
 .question-btn:hover {
-  background-color: #a52c1e;
+  background-color: #73140a; /*  hover时更深的红色 */
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(192, 57, 43, 0.3);
+  box-shadow: 0 4px 8px rgba(140, 25, 13, 0.3);
 }
 
 .hot-questions {
@@ -533,7 +535,7 @@ export default {
   transform: translateY(-2px);
 }
 
-/* 指标卡片样式 */
+/* 指标卡片样式 - 红色系点缀 */
 .indicator-cards {
   display: flex;
   gap: 20px;
@@ -547,15 +549,16 @@ export default {
   background-color: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  border-top: 3px solid #b32415; /* 红色顶边，统一主题 */
 }
 
 .card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px rgba(179, 36, 21, 0.1);
 }
 
 .card-enter {
@@ -591,15 +594,15 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(192, 57, 43, 0.1);
-  color: #c0392b;
+  background-color: rgba(179, 36, 21, 0.1); /* 红色系背景 */
+  color: #b32415; /* 图标红色 */
   font-size: 18px;
 }
 
 .card-value {
   font-size: 28px;
   font-weight: 700;
-  color: #333;
+  color: #b32415; /* 数值红色高亮 */
   margin-bottom: 8px;
 }
 
@@ -621,13 +624,10 @@ export default {
   align-items: center;
   gap: 6px;
   font-size: 14px;
+  color: #b32415; /* 趋势红色，统一主题 */
 }
 
-.positive {
-  color: #27ae60;
-}
-
-/* 图表区域样式 */
+/* 图表区域样式 - 红色系统一 */
 .chart-container {
   margin-bottom: 24px;
 }
@@ -636,8 +636,9 @@ export default {
   background-color: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
   margin-bottom: 20px;
+  border-left: 3px solid #b32415; /* 红色左边框，统一主题 */
 }
 
 .chart-header {
@@ -660,23 +661,24 @@ export default {
 
 .chart-btn {
   padding: 4px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #e0b4af; /* 红色系边框 */
   border-radius: 20px;
   background-color: white;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s;
+  color: #666;
 }
 
 .chart-btn.active {
-  background-color: #c0392b;
+  background-color: #b32415; /* 激活状态红色背景 */
   color: white;
-  border-color: #c0392b;
+  border-color: #b32415;
 }
 
 .chart-btn:hover:not(.active) {
-  border-color: #c0392b;
-  color: #c0392b;
+  border-color: #b32415;
+  color: #b32415; /* hover时红色文字 */
 }
 
 .chart-content {
@@ -693,12 +695,12 @@ export default {
   min-width: 300px;
 }
 
-/* 快速访问模块 */
+/* 快速访问模块 - 红色系统一 */
 .quick-access {
   background-color: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
 }
 
 .section-title {
@@ -707,7 +709,7 @@ export default {
   font-weight: 500;
   margin-bottom: 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0d8d5; /* 红色系边框 */
 }
 
 .access-cards {
@@ -724,19 +726,19 @@ export default {
   width: 100px;
   height: 100px;
   border-radius: 8px;
-  background-color: #f9f9f9;
+  background-color: #fef7f6; /* 浅红色背景 */
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .access-card:hover {
-  background-color: rgba(192, 57, 43, 0.1);
+  background-color: rgba(179, 36, 21, 0.1); /*  hover时红色背景加深 */
   transform: translateY(-3px);
 }
 
 .access-card .iconfont {
   font-size: 28px;
-  color: #c0392b;
+  color: #b32415; /* 图标红色 */
   margin-bottom: 8px;
 }
 
@@ -745,10 +747,10 @@ export default {
   color: #333;
 }
 
-/* 页脚样式 */
+/* 页脚样式 - 红色系统一 */
 .app-footer {
-  background-color: #333;
-  color: #aaa;
+  background-color: #b32415; /* 主红色页脚 */
+  color: rgba(255, 255, 255, 0.8);
   padding: 20px;
   margin-top: auto;
 }
@@ -768,7 +770,7 @@ export default {
 }
 
 .footer-links a {
-  color: #aaa;
+  color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
   transition: color 0.3s;
 }
