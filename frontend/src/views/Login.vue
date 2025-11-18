@@ -99,7 +99,8 @@
 </template>
 
 <script>
-import api from '@/api'
+// 1. 引入 account.js 中的 login 和 register 函数（替换原有的 api 引入）
+import { login, register } from '@/api/account';
 
 export default {
   name: 'Login',
@@ -128,13 +129,21 @@ export default {
       this.errorMessage = ''
       
       try {
-        // 这里应该调用登录API
-        // 暂时使用模拟登录
-        localStorage.setItem('isLoggedIn', 'true')
-        localStorage.setItem('username', this.loginForm.username)
-        this.$router.push('/')
+        // 2. 调用 account.js 的 login 函数，传入用户名和密码
+        const response = await login(this.loginForm.username, this.loginForm.password);
+        
+        // 3. 登录成功：存储后端返回的 Token 和用户信息（用于后续受保护接口）
+        if (response.ok && response.data?.token) {
+          localStorage.setItem('token', response.data.token); // 存储 Token
+          localStorage.setItem('user', JSON.stringify(response.data.user)); // 存储用户信息
+          localStorage.setItem('isLoggedIn', 'true');
+          this.$router.push('/'); // 跳转到首页
+        } else {
+          throw new Error('登录响应异常，请重试');
+        }
       } catch (error) {
-        this.errorMessage = '登录失败，请检查用户名和密码'
+        // 4. 捕获错误：优先显示后端返回的错误信息，无则用默认提示
+        this.errorMessage = error.error || '登录失败，请检查用户名和密码';
       } finally {
         this.loading = false
       }
@@ -146,23 +155,31 @@ export default {
       this.registerError = false
       
       try {
-        // 验证密码一致性
+        // 5. 先验证密码一致性（前端基础校验）
         if (this.registerForm.password !== this.registerForm.confirmPassword) {
-          throw new Error('两次输入的密码不一致')
+          throw new Error('两次输入的密码不一致');
         }
         
-        // 这里应该调用注册API
-        // 暂时使用模拟注册
-        localStorage.setItem('isLoggedIn', 'true')
-        localStorage.setItem('username', this.registerForm.username)
-        this.registerMessage = '注册成功，即将跳转...'
+        // 6. 调用 account.js 的 register 函数，传入用户名和密码
+        const response = await register(this.registerForm.username, this.registerForm.password);
         
-        setTimeout(() => {
-          this.$router.push('/')
-        }, 1500)
+        // 7. 注册成功：存储 Token 和用户信息，提示并跳转
+        if (response.ok && response.data?.token) {
+          localStorage.setItem('token', response.data.token);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+          localStorage.setItem('isLoggedIn', 'true');
+          this.registerMessage = '注册成功，即将跳转...';
+          
+          setTimeout(() => {
+            this.$router.push('/');
+          }, 1500);
+        } else {
+          throw new Error('注册响应异常，请重试');
+        }
       } catch (error) {
-        this.registerError = true
-        this.registerMessage = error.message || '注册失败，请重试'
+        // 8. 捕获注册错误：后端错误（如用户名已存在）或前端校验错误
+        this.registerError = true;
+        this.registerMessage = error.error || error.message || '注册失败，请重试';
       } finally {
         this.registerLoading = false
       }

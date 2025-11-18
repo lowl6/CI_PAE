@@ -190,6 +190,7 @@ export default {
   data() {
     return {
       username: '',
+      userRole: '',
       selectedDateRange: 'all',
       cardAnimation: 'card-enter',
       questionInput: '', // 绑定输入框的变量（原questionText改为与v-model一致）
@@ -212,7 +213,9 @@ export default {
     }
   },
   mounted() {
-    this.username = localStorage.getItem('username') || '管理员'
+    const userInfo = JSON.parse(localStorage.getItem('user')) || {};
+    this.username = userInfo.username || '未知用户'; // 不再硬编码“管理员”
+    this.userRole = userInfo.role || '普通用户'; // 新增角色变量，默认普通用户
     setTimeout(() => {
       this.cardAnimation = ''
     }, 800)
