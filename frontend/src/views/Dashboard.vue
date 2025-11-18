@@ -4,7 +4,7 @@
     <header class="navbar">
       <div class="navbar-left">
         <div class="logo">
-          <i class="iconfont icon-zhishitongxin"></i>
+          <img src="/icons/logo.png" alt="Logo" class="logo-icon" @error="onLogoError">
           <span class="system-name">攻坚印记</span>
           <span class="system-desc">脱贫攻坚经验智能提炼系统</span>
         </div>
@@ -12,10 +12,13 @@
       <div class="navbar-right">
         <div class="user-info">
           <img src="https://picsum.photos/id/1005/40/40" alt="用户头像" class="user-avatar">
-          <span class="user-name">管理员</span>
+          <span class="user-name">{{ username }}</span>
         </div>
+        <button class="logout-btn" @click="handleLogout">
+          登出
+        </button>
         <button class="refresh-btn">
-          <i class="iconfont icon-refresh"></i>
+          <span class="icon-refresh">🔄</span>
         </button>
       </div>
     </header>
@@ -26,7 +29,7 @@
       <div class="page-header">
         <div class="breadcrumb">
           <span>首页</span>
-          <i class="iconfont icon-arrow-right"></i>
+          <span class="icon-arrow-right">→</span>
           <span class="active">数据概览</span>
         </div>
         <div class="date-range">
@@ -40,87 +43,65 @@
         </div>
       </div>
 
-      <!-- 核心问答组件 -->
-      <div class="question-section">
-        <div class="question-header">
-          <h3 class="question-title">智能问答 · 经验提炼</h3>
-          <p class="question-desc">基于自然语言处理技术，快速查询脱贫攻坚经验、政策效果与成功模式</p>
+      <!-- 智能查询输入框 -->
+      <div class="question-input-group">
+        <input 
+          v-model="questionInput" 
+          placeholder="请输入您想了解的扶贫政策、措施或成效..." 
+          class="question-input"
+          @keyup.enter="submitQuestion"
+        >
+        <button class="question-btn" @click="submitQuestion" :disabled="isLoading">
+          <span class="icon-search">🔍</span>
+          {{ isLoading ? '查询中...' : '智能查询' }}
+        </button>
+      </div>
+
+      <!-- 错误提示 -->
+      <div v-if="queryError" class="query-error">{{ queryError }}</div>
+
+      <!-- 查询结果展示 -->
+      <div v-if="queryResult" class="query-result">
+        <div class="result-section">
+          <h3>分析报告</h3>
+          <div class="report-content">{{ queryResult.report }}</div>
         </div>
-        <div class="question-input-group">
-          <i class="iconfont icon-search question-icon"></i>
-          <input 
-            type="text" 
-            class="question-input" 
-            placeholder="请输入您的查询问题，例如：内蒙古产业扶贫成功模式有哪些？"
-            v-model="questionText"
-            @keyup.enter="submitQuestion"
-          >
-          <button class="question-btn" @click="submitQuestion">
-            智能查询
-          </button>
-        </div>
-        <div class="hot-questions">
-          <span class="hot-title">热门查询：</span>
-          <div class="hot-tags">
-            <span class="hot-tag" @click="selectHotQuestion('易地搬迁政策效果分析')">易地搬迁政策效果分析</span>
-            <span class="hot-tag" @click="selectHotQuestion('光伏扶贫成功案例')">光伏扶贫成功案例</span>
-            <span class="hot-tag" @click="selectHotQuestion('牧民增收主要途径')">牧民增收主要途径</span>
-            <span class="hot-tag" @click="selectHotQuestion('教育扶贫成效数据')">教育扶贫成效数据</span>
+        
+        <!-- 可选：展示生成的SQL和原始数据（根据需求决定是否显示） -->
+        <div class="result-section">
+          <h3>查询详情</h3>
+          <pre class="sql-code">{{ queryResult.sql }}</pre>
+          <div class="raw-data">
+            <h4>原始数据</h4>
+            <pre>{{ JSON.stringify(queryResult.result, null, 2) }}</pre>
           </div>
         </div>
       </div>
 
-      <!-- 核心指标卡片区 -->
+      <!-- 热门问题推荐 -->
+      <div class="hot-questions">
+        <span class="hot-label">热门查询：</span>
+        <a href="#" v-for="(item, index) in hotQuestions" :key="index" @click.prevent="fillQuestion(item)">
+          {{ item }}
+        </a>
+      </div>
+
+      <!-- 核心指标卡片 -->
       <div class="indicator-cards">
-        <div class="card" :class="cardAnimation">
+        <div class="card" v-for="(item, index) in indicators" :key="index">
           <div class="card-header">
-            <span class="card-title">脱贫县数量</span>
-            <i class="iconfont icon-map-location card-icon"></i>
+            <span class="card-icon">{{ getIndicatorIcon(index) }}</span>
+            <span class="change-rate" :class="{ positive: item.change > 0 }">
+              <span class="icon-arrow-up">{{ item.change > 0 ? '↑' : '↓' }}</span>
+              {{ Math.abs(item.change) }}%
+            </span>
           </div>
-          <div class="card-value">57 <span class="unit">个</span></div>
-          <div class="card-desc">覆盖内蒙古全部贫困县</div>
-          <div class="card-trend">
-            <i class="iconfont icon-arrow-up"></i>
-            <span>100% 脱贫率</span>
+          <div class="card-body">
+            <h4>{{ item.title }}</h4>
+            <p class="card-value">{{ item.value }}</p>
           </div>
-        </div>
-
-        <div class="card" :class="cardAnimation">
-          <div class="card-header">
-            <span class="card-title">访谈资料</span>
-            <i class="iconfont icon-microphone card-icon"></i>
-          </div>
-          <div class="card-value">12,846 <span class="unit">份</span></div>
-          <div class="card-desc">涵盖干部、村民、企业家等</div>
-          <div class="card-trend">
-            <i class="iconfont icon-arrow-up"></i>
-            <span>23.5% 年增长</span>
-          </div>
-        </div>
-
-        <div class="card" :class="cardAnimation">
-          <div class="card-header">
-            <span class="card-title">成功模式</span>
-            <i class="iconfont icon-lightbulb card-icon"></i>
-          </div>
-          <div class="card-value">89 <span class="unit">种</span></div>
-          <div class="card-desc">产业扶贫、易地搬迁等</div>
-          <div class="card-trend">
-            <i class="iconfont icon-arrow-up"></i>
-            <span>15.2% 新增</span>
-          </div>
-        </div>
-
-        <div class="card" :class="cardAnimation">
-          <div class="card-header">
-            <span class="card-title">政策验证案例</span>
-            <i class="iconfont icon-file-text card-icon"></i>
-          </div>
-          <div class="card-value">326 <span class="unit">个</span></div>
-          <div class="card-desc">政策效果量化分析</div>
-          <div class="card-trend">
-            <i class="iconfont icon-arrow-up"></i>
-            <span>31.8% 年增长</span>
+          <div class="card-footer">
+            <span>{{ item.desc }}</span>
           </div>
         </div>
       </div>
@@ -201,77 +182,124 @@
 
 <script>
 import DataChart from '../components/Charts/DataChart.vue'
+import { nlpApi } from '../api/nlpApi' // 导入API客户端
 
-// 引入图标库（实际项目中建议使用IconFont或其他图标库）
 export default {
   name: 'Dashboard',
   components: { DataChart },
   data() {
     return {
+      username: '',
       selectedDateRange: 'all',
       cardAnimation: 'card-enter',
-      questionText: '' // 问答输入框绑定值
+      questionInput: '', // 绑定输入框的变量（原questionText改为与v-model一致）
+      isLoading: false, // 加载状态
+      queryResult: null, // 查询结果
+      queryError: '', // 错误信息
+      // 热门问题数据（根据实际需求补充）
+      hotQuestions: [
+        "近5年脱贫人数统计",
+        "各地区扶贫措施对比",
+        "产业扶贫成效分析"
+      ],
+      // 核心指标数据（保留原有逻辑）
+      indicators: [
+        { title: '累计脱贫人数', value: '9899万', change: 12.5, desc: '较上一周期增长' },
+        { title: '帮扶政策数', value: '326项', change: 8.3, desc: '较上一周期增长' },
+        { title: '特色产业数', value: '1258个', change: 15.7, desc: '较上一周期增长' },
+        { title: '典型案例数', value: '532个', change: 5.2, desc: '较上一周期增长' }
+      ]
     }
   },
   mounted() {
-    // 卡片进入动画
+    this.username = localStorage.getItem('username') || '管理员'
     setTimeout(() => {
       this.cardAnimation = ''
     }, 800)
-    
-    // 模拟数据加载效果
     this.simulateDataLoading()
   },
   methods: {
     simulateDataLoading() {
-      // 模拟图表数据加载延迟
       setTimeout(() => {
         this.$emit('data-loaded', true)
       }, 1200)
     },
-    // 提交问答查询
-    submitQuestion() {
-      if (!this.questionText.trim()) {
-        alert('请输入查询问题')
+    // 提交查询（核心逻辑）
+    async submitQuestion() {
+      // 验证输入
+      if (!this.questionInput.trim()) {
+        this.queryError = '请输入查询问题'
         return
       }
-      // 这里可以添加实际的查询逻辑
-      console.log('查询问题：', this.questionText)
-      // 模拟查询中状态
-      this.$message({
-        message: '正在智能分析您的问题，请稍候...',
-        type: 'info'
-      })
+
+      // 重置状态
+      this.queryError = ''
+      this.queryResult = null
+      this.isLoading = true
+
+      try {
+        // 调用后端API
+        const response = await nlpApi.submitQuery(this.questionInput)
+        if (response.data.ok) {
+          this.queryResult = response.data.data
+        } else {
+          this.queryError = response.data.error
+        }
+      } catch (err) {
+      this.queryError = '查询失败，请稍后重试';
+      // 打印详细错误到前端控制台
+      console.log("=== 前端查询错误详情 ===");
+      console.log("错误对象:", err);
+      if (err.response) {
+        console.log("后端响应:", err.response.data);
+        console.log("状态码:", err.response.status);
+      } else {
+        console.log("无响应原因:", err.message);
+      }
+    } finally {
+        this.isLoading = false
+      }
     },
-    // 选择热门问题
-    selectHotQuestion(question) {
-      this.questionText = question
-      // 自动提交查询
-      this.submitQuestion()
+    // 填充热门问题到输入框
+    fillQuestion(question) {
+      this.questionInput = question
+    },
+    // 登出功能
+    handleLogout() {
+      localStorage.removeItem('isLoggedIn')
+      localStorage.removeItem('username')
+      this.$router.push('/login')
+    },
+    onLogoError(event) {
+      event.target.src = 'https://via.placeholder.com/40'
+    },
+    // 指标图标（保留原有逻辑）
+    getIndicatorIcon(index) {
+      const icons = ['👥', '📜', '🏭', '📊']
+      return icons[index % icons.length]
     }
   }
 }
 </script>
 
 <style scoped>
-/* 全局样式 - 统一红色主题 */
+/* 全局样式 */
 .app-container {
   min-height: 100vh;
-  background-color: #fdf5f4; /* 浅红色背景，增强统一感 */
+  background-color: #f5f7fa;
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
-  color: #333;
 }
 
-/* 导航栏样式 - 深红色主色调 */
+/* 导航栏样式 */
 .navbar {
-  background-color: #b32415; /* 主红色：深色调，庄重专业 */
+  background-color: #c0392b;
   color: white;
   padding: 0 24px;
   height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(179, 36, 21, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   position: relative;
   z-index: 10;
 }
@@ -334,6 +362,20 @@ export default {
   background-color: rgba(255, 255, 255, 0.15);
 }
 
+.logout-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 /* 主内容区样式 */
 .main-content {
   padding: 24px;
@@ -353,11 +395,11 @@ export default {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #888;
+  color: #666;
 }
 
 .breadcrumb .active {
-  color: #b32415; /* 面包屑当前页红色高亮 */
+  color: #c0392b;
   font-weight: 500;
 }
 
@@ -366,37 +408,36 @@ export default {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #888;
+  color: #666;
 }
 
 .date-range select {
   padding: 6px 12px;
-  border: 1px solid #e0b4af; /* 红色系边框 */
+  border: 1px solid #ddd;
   border-radius: 4px;
   background-color: white;
   cursor: pointer;
   transition: border-color 0.3s;
-  color: #333;
 }
 
 .date-range select:focus {
   outline: none;
-  border-color: #b32415; /* 聚焦时红色边框 */
+  border-color: #c0392b;
 }
 
-/* 核心问答组件 - 统一红色主题 */
+/* 突出显示的问答组件样式 - 核心修改部分 */
 .question-section {
-  background-color: #b32415; /* 与导航栏一致的主红色 */
+  background: linear-gradient(135deg, #c0392b 0%, #d35400 100%);
   border-radius: 16px;
   padding: 32px;
   margin-bottom: 32px;
-  box-shadow: 0 8px 24px rgba(179, 36, 21, 0.2);
+  box-shadow: 0 8px 24px rgba(192, 57, 43, 0.2);
   color: white;
   position: relative;
   overflow: hidden;
 }
 
-/* 装饰元素 - 红色系渐变 */
+/* 装饰元素 */
 .question-section::before {
   content: '';
   position: absolute;
@@ -462,7 +503,7 @@ export default {
 }
 
 .question-icon {
-  color: #b32415; /* 图标红色，与主题一致 */
+  color: #c0392b;
   font-size: 20px;
   margin-left: 12px;
 }
@@ -482,7 +523,7 @@ export default {
 }
 
 .question-btn {
-  background-color: #8c190d; /* 深一级红色按钮 */
+  background-color: #c0392b;
   color: white;
   border: none;
   border-radius: 6px;
@@ -495,9 +536,9 @@ export default {
 }
 
 .question-btn:hover {
-  background-color: #73140a; /*  hover时更深的红色 */
+  background-color: #a52c1e;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(140, 25, 13, 0.3);
+  box-shadow: 0 4px 8px rgba(192, 57, 43, 0.3);
 }
 
 .hot-questions {
@@ -535,7 +576,7 @@ export default {
   transform: translateY(-2px);
 }
 
-/* 指标卡片样式 - 红色系点缀 */
+/* 指标卡片样式 */
 .indicator-cards {
   display: flex;
   gap: 20px;
@@ -549,16 +590,15 @@ export default {
   background-color: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
-  border-top: 3px solid #b32415; /* 红色顶边，统一主题 */
 }
 
 .card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(179, 36, 21, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .card-enter {
@@ -594,15 +634,15 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(179, 36, 21, 0.1); /* 红色系背景 */
-  color: #b32415; /* 图标红色 */
+  background-color: rgba(192, 57, 43, 0.1);
+  color: #c0392b;
   font-size: 18px;
 }
 
 .card-value {
   font-size: 28px;
   font-weight: 700;
-  color: #b32415; /* 数值红色高亮 */
+  color: #333;
   margin-bottom: 8px;
 }
 
@@ -624,10 +664,13 @@ export default {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: #b32415; /* 趋势红色，统一主题 */
 }
 
-/* 图表区域样式 - 红色系统一 */
+.positive {
+  color: #27ae60;
+}
+
+/* 图表区域样式 */
 .chart-container {
   margin-bottom: 24px;
 }
@@ -636,9 +679,8 @@ export default {
   background-color: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   margin-bottom: 20px;
-  border-left: 3px solid #b32415; /* 红色左边框，统一主题 */
 }
 
 .chart-header {
@@ -661,24 +703,23 @@ export default {
 
 .chart-btn {
   padding: 4px 12px;
-  border: 1px solid #e0b4af; /* 红色系边框 */
+  border: 1px solid #ddd;
   border-radius: 20px;
   background-color: white;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s;
-  color: #666;
 }
 
 .chart-btn.active {
-  background-color: #b32415; /* 激活状态红色背景 */
+  background-color: #c0392b;
   color: white;
-  border-color: #b32415;
+  border-color: #c0392b;
 }
 
 .chart-btn:hover:not(.active) {
-  border-color: #b32415;
-  color: #b32415; /* hover时红色文字 */
+  border-color: #c0392b;
+  color: #c0392b;
 }
 
 .chart-content {
@@ -695,12 +736,12 @@ export default {
   min-width: 300px;
 }
 
-/* 快速访问模块 - 红色系统一 */
+/* 快速访问模块 */
 .quick-access {
   background-color: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .section-title {
@@ -709,7 +750,7 @@ export default {
   font-weight: 500;
   margin-bottom: 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f0d8d5; /* 红色系边框 */
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .access-cards {
@@ -726,19 +767,19 @@ export default {
   width: 100px;
   height: 100px;
   border-radius: 8px;
-  background-color: #fef7f6; /* 浅红色背景 */
+  background-color: #f9f9f9;
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .access-card:hover {
-  background-color: rgba(179, 36, 21, 0.1); /*  hover时红色背景加深 */
+  background-color: rgba(192, 57, 43, 0.1);
   transform: translateY(-3px);
 }
 
 .access-card .iconfont {
   font-size: 28px;
-  color: #b32415; /* 图标红色 */
+  color: #c0392b;
   margin-bottom: 8px;
 }
 
@@ -747,10 +788,10 @@ export default {
   color: #333;
 }
 
-/* 页脚样式 - 红色系统一 */
+/* 页脚样式 */
 .app-footer {
-  background-color: #b32415; /* 主红色页脚 */
-  color: rgba(255, 255, 255, 0.8);
+  background-color: #333;
+  color: #aaa;
   padding: 20px;
   margin-top: auto;
 }
@@ -770,7 +811,7 @@ export default {
 }
 
 .footer-links a {
-  color: rgba(255, 255, 255, 0.8);
+  color: #aaa;
   text-decoration: none;
   transition: color 0.3s;
 }
@@ -850,36 +891,49 @@ export default {
     display: none;
   }
 }
-</style>
 
-<!-- 引入图标库（实际项目中需替换为真实图标库） -->
-<style>
-@font-face {
-  font-family: 'iconfont';
-  src: url('//at.alicdn.com/t/c/font_3283598_8s3k9l6z07e.woff2?t=1678293064202') format('woff2'),
-       url('//at.alicdn.com/t/c/font_3283598_8s3k9l6z07e.woff?t=1678293064202') format('woff'),
-       url('//at.alicdn.com/t/c/font_3283598_8s3k9l6z07e.ttf?t=1678293064202') format('truetype');
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  margin-right: 10px;
+  vertical-align: middle;
 }
 
-.iconfont {
-  font-family: "iconfont" !important;
+.logo-text {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  background-color: #409EFF;
+  color: white;
+  border-radius: 4px;
+  font-weight: bold;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.icon-refresh, .icon-search, .icon-arrow-right, 
+.icon-arrow-up, .icon-analysis {
   font-size: 16px;
-  font-style: normal;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  margin-right: 4px;
 }
 
-.icon-zhishitongxin:before { content: "\e61c"; }
-.icon-map-location:before { content: "\e64d"; }
-.icon-microphone:before { content: "\e64e"; }
-.icon-lightbulb:before { content: "\e65c"; }
-.icon-file-text:before { content: "\e660"; }
-.icon-arrow-up:before { content: "\e664"; }
-.icon-arrow-right:before { content: "\e665"; }
-.icon-refresh:before { content: "\e673"; }
-.icon-search:before { content: "\e67d"; }
-.icon-analysis:before { content: "\e680"; }
-.icon-report:before { content: "\e681"; }
-.icon-share:before { content: "\e682"; }
-.icon-setting:before { content: "\e683"; }
+.card-icon {
+  font-size: 24px;
+  margin-right: 8px;
+}
+
+.access-item .icon-analysis {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+.change-rate.positive {
+  color: #67C23A;
+}
+
+.change-rate.negative {
+  color: #F56C6C;
+}
 </style>

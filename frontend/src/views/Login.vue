@@ -1,0 +1,362 @@
+<template>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-header">
+        <h2>脱贫攻坚经验智能提炼系统</h2>
+        <p>登录到您的账户</p>
+      </div>
+      
+      <form @submit.prevent="handleLogin" class="login-form">
+        <div class="form-group">
+          <label for="username">用户名</label>
+          <input 
+            id="username"
+            v-model="loginForm.username" 
+            type="text" 
+            placeholder="请输入用户名"
+            required
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="password">密码</label>
+          <input 
+            id="password"
+            v-model="loginForm.password" 
+            type="password" 
+            placeholder="请输入密码"
+            required
+          />
+        </div>
+        
+        <button type="submit" class="login-button" :disabled="loading">
+          {{ loading ? '登录中...' : '登录' }}
+        </button>
+      </form>
+      
+      <div class="register-link">
+        <p>还没有账户？ <a href="#" @click="showRegister = true">立即注册</a></p>
+      </div>
+      
+      <div v-if="errorMessage" class="error-message">
+        {{ errorMessage }}
+      </div>
+    </div>
+    
+    <!-- 注册表单 -->
+    <div v-if="showRegister" class="register-overlay" @click="showRegister = false">
+      <div class="register-box" @click.stop>
+        <div class="register-header">
+          <h2>用户注册</h2>
+          <button class="close-button" @click="showRegister = false">&times;</button>
+        </div>
+        
+        <form @submit.prevent="handleRegister" class="register-form">
+          <div class="form-group">
+            <label for="regUsername">用户名</label>
+            <input 
+              id="regUsername"
+              v-model="registerForm.username" 
+              type="text" 
+              placeholder="请输入用户名"
+              required
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="regPassword">密码</label>
+            <input 
+              id="regPassword"
+              v-model="registerForm.password" 
+              type="password" 
+              placeholder="请输入密码"
+              required
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="confirmPassword">确认密码</label>
+            <input 
+              id="confirmPassword"
+              v-model="registerForm.confirmPassword" 
+              type="password" 
+              placeholder="请再次输入密码"
+              required
+            />
+          </div>
+          
+          <button type="submit" class="register-button" :disabled="registerLoading">
+            {{ registerLoading ? '注册中...' : '注册' }}
+          </button>
+        </form>
+        
+        <div v-if="registerMessage" class="register-message" :class="{ error: registerError }">
+          {{ registerMessage }}
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import api from '@/api'
+
+export default {
+  name: 'Login',
+  data() {
+    return {
+      loginForm: {
+        username: '',
+        password: ''
+      },
+      registerForm: {
+        username: '',
+        password: '',
+        confirmPassword: ''
+      },
+      loading: false,
+      registerLoading: false,
+      errorMessage: '',
+      showRegister: false,
+      registerMessage: '',
+      registerError: false
+    }
+  },
+  methods: {
+    async handleLogin() {
+      this.loading = true
+      this.errorMessage = ''
+      
+      try {
+        // 这里应该调用登录API
+        // 暂时使用模拟登录
+        localStorage.setItem('isLoggedIn', 'true')
+        localStorage.setItem('username', this.loginForm.username)
+        this.$router.push('/')
+      } catch (error) {
+        this.errorMessage = '登录失败，请检查用户名和密码'
+      } finally {
+        this.loading = false
+      }
+    },
+    
+    async handleRegister() {
+      this.registerLoading = true
+      this.registerMessage = ''
+      this.registerError = false
+      
+      try {
+        // 验证密码一致性
+        if (this.registerForm.password !== this.registerForm.confirmPassword) {
+          throw new Error('两次输入的密码不一致')
+        }
+        
+        // 这里应该调用注册API
+        // 暂时使用模拟注册
+        localStorage.setItem('isLoggedIn', 'true')
+        localStorage.setItem('username', this.registerForm.username)
+        this.registerMessage = '注册成功，即将跳转...'
+        
+        setTimeout(() => {
+          this.$router.push('/')
+        }, 1500)
+      } catch (error) {
+        this.registerError = true
+        this.registerMessage = error.message || '注册失败，请重试'
+      } finally {
+        this.registerLoading = false
+      }
+    }
+  }
+}
+</script>
+
+<style scoped>
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  position: relative;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.login-header h2 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.login-header p {
+  color: #666;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: #333;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #c0392b;
+}
+
+.login-button {
+  width: 100%;
+  padding: 12px;
+  background-color: #c0392b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.login-button:hover:not(:disabled) {
+  background-color: #a5281b;
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.register-link {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.register-link a {
+  color: #c0392b;
+  text-decoration: none;
+}
+
+.register-link a:hover {
+  text-decoration: underline;
+}
+
+.error-message {
+  color: #e74c3c;
+  text-align: center;
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #fdf2f2;
+  border-radius: 4px;
+  border: 1px solid #f5c6cb;
+}
+
+.register-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.register-box {
+  width: 100%;
+  max-width: 400px;
+  padding: 30px;
+  background: white;
+  border-radius: 8px;
+  position: relative;
+}
+
+.register-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.register-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+}
+
+.close-button:hover {
+  color: #333;
+}
+
+.register-form {
+  margin-bottom: 15px;
+}
+
+.register-button {
+  width: 100%;
+  padding: 12px;
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.register-button:hover:not(:disabled) {
+  background-color: #219653;
+}
+
+.register-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.register-message {
+  text-align: center;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.register-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border-color: #f5c6cb;
+}
+</style>
