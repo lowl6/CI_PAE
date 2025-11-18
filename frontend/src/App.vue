@@ -1,20 +1,17 @@
 <template>
-  <div id="app">
-    <router-view />
-  </div>
+  <AppNav :username="username" @logout="handleLogout" />
+  <router-view />
 </template>
 
-<script>
-export default {
-  name: 'App'
+<script setup>
+import { ref } from 'vue'
+import AppNav from './views/AppNav.vue'
+
+/* 简单示例：用户名 & 登出 */
+const username = ref(localStorage.getItem('username') || 'admin')
+
+function handleLogout() {
+  localStorage.clear()
+  location.reload()          // 简单粗暴回登录页
 }
 </script>
-
-<style>
-#app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  color: #2c3e50;
-}
-</style>

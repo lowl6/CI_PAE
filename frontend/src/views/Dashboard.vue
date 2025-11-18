@@ -1,27 +1,6 @@
 <template>
   <div class="app-container">
-    <!-- 顶部导航栏 -->
-    <header class="navbar">
-      <div class="navbar-left">
-        <div class="logo">
-          <img src="/icons/logo.png" alt="Logo" class="logo-icon" @error="onLogoError">
-          <span class="system-name">攻坚印记</span>
-          <span class="system-desc">脱贫攻坚经验智能提炼系统</span>
-        </div>
-      </div>
-      <div class="navbar-right">
-        <div class="user-info">
-          <img src="https://picsum.photos/id/1005/40/40" alt="用户头像" class="user-avatar">
-          <span class="user-name">{{ username }}</span>
-        </div>
-        <button class="logout-btn" @click="handleLogout">
-          登出
-        </button>
-        <button class="refresh-btn">
-          <span class="icon-refresh">🔄</span>
-        </button>
-      </div>
-    </header>
+
 
     <!-- 主内容区 -->
     <main class="main-content">
@@ -43,48 +22,7 @@
         </div>
       </div>
 
-      <!-- 智能查询输入框 -->
-      <div class="question-input-group">
-        <input 
-          v-model="questionInput" 
-          placeholder="请输入您想了解的扶贫政策、措施或成效..." 
-          class="question-input"
-          @keyup.enter="submitQuestion"
-        >
-        <button class="question-btn" @click="submitQuestion" :disabled="isLoading">
-          <span class="icon-search">🔍</span>
-          {{ isLoading ? '查询中...' : '智能查询' }}
-        </button>
-      </div>
-
-      <!-- 错误提示 -->
-      <div v-if="queryError" class="query-error">{{ queryError }}</div>
-
-      <!-- 查询结果展示 -->
-      <div v-if="queryResult" class="query-result">
-        <div class="result-section">
-          <h3>分析报告</h3>
-          <div class="report-content">{{ queryResult.report }}</div>
-        </div>
-        
-        <!-- 可选：展示生成的SQL和原始数据（根据需求决定是否显示） -->
-        <div class="result-section">
-          <h3>查询详情</h3>
-          <pre class="sql-code">{{ queryResult.sql }}</pre>
-          <div class="raw-data">
-            <h4>原始数据</h4>
-            <pre>{{ JSON.stringify(queryResult.result, null, 2) }}</pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- 热门问题推荐 -->
-      <div class="hot-questions">
-        <span class="hot-label">热门查询：</span>
-        <a href="#" v-for="(item, index) in hotQuestions" :key="index" @click.prevent="fillQuestion(item)">
-          {{ item }}
-        </a>
-      </div>
+     
 
       <!-- 核心指标卡片 -->
       <div class="indicator-cards">
@@ -181,12 +119,13 @@
 </template>
 
 <script>
+import AppNav from './AppNav.vue'
 import DataChart from '../components/Charts/DataChart.vue'
 import { nlpApi } from '../api/nlpApi' // 导入API客户端
 
 export default {
   name: 'Dashboard',
-  components: { DataChart },
+  components: { DataChart, AppNav }, 
   data() {
     return {
       username: '',
@@ -197,12 +136,6 @@ export default {
       isLoading: false, // 加载状态
       queryResult: null, // 查询结果
       queryError: '', // 错误信息
-      // 热门问题数据（根据实际需求补充）
-      hotQuestions: [
-        "近5年脱贫人数统计",
-        "各地区扶贫措施对比",
-        "产业扶贫成效分析"
-      ],
       // 核心指标数据（保留原有逻辑）
       indicators: [
         { title: '累计脱贫人数', value: '9899万', change: 12.5, desc: '较上一周期增长' },
