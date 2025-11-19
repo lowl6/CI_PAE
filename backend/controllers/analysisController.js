@@ -178,15 +178,24 @@ exports.getAnalysisData = async (req, res) => {
         if (!indicatorInfo) continue;
 
         // 查询最新年份的数据
+        // 修改：排除GDP的同比字段
+        let queryFields = indicatorKey;
+        // 只有非GDP指标才查询同比字段
+        if (!['gdp', 'gdp_primary', 'gdp_secondary', 'gdp_tertiary'].includes(indicatorKey)) {
+          const yoyField = `${indicatorKey}_yoy`;
+          queryFields += `, ${yoyField}`;
+        }
+
         const [data] = await pool.query(
-          `SELECT ${indicatorKey}, ${indicatorKey}_yoy FROM ${indicatorInfo.table} 
-           WHERE county_id = ? AND year = ?`,
+          `SELECT ${queryFields} FROM ${indicatorInfo.table} 
+     WHERE county_id = ? AND year = ?`,
           [currentCountyId, endYear]
         );
 
         if (data.length > 0) {
           const value = data[0][indicatorKey];
-          const yoy = data[0][`${indicatorKey}_yoy`];
+          // 修改：处理可能不存在的同比字段
+          const yoy = data[0][yoyField] !== undefined ? data[0][yoyField] : null;
 
           cards.push({
             name: indicatorInfo.title,
@@ -286,17 +295,39 @@ exports.exportCsv = async (req, res) => {
 // 辅助函数：获取指标信息
 function getIndicatorInfo(key) {
   const indicatorsMap = {
-    'gdp': { title: '地区生产总值', unit: '亿元', table: 'economic_indicators' },
+    // 经济指标（有同比字段）
     'public_budget_income': { title: '一般公共预算收入', unit: '万元', table: 'economic_indicators' },
+    'public_budget_exp': { title: '一般公共预算支出', unit: '万元', table: 'economic_indicators' },
     'disp_income_total': { title: '全体居民人均可支配收入', unit: '元', table: 'economic_indicators' },
+    'disp_income_urban': { title: '城镇常住居民人均可支配收入', unit: '元', table: 'economic_indicators' },
     'disp_income_rural': { title: '农村牧区常住居民人均可支配收入', unit: '元', table: 'economic_indicators' },
+
+    // 农业指标（有同比字段）
     'arable_land': { title: '耕地面积', unit: '公顷', table: 'agriculture_indicators' },
+    'high_std_farmland': { title: '高标准农田面积', unit: '公顷', table: 'agriculture_indicators' },
+    'sown_area': { title: '农作物总播种面积', unit: '公顷', table: 'agriculture_indicators' },
     'grain_yield': { title: '粮食产量', unit: '吨', table: 'agriculture_indicators' },
     'oil_yield': { title: '油料产量', unit: '吨', table: 'agriculture_indicators' },
-    'registered_pop': { title: '户籍人口', unit: '万人', table: 'population_indicators' },
+
+    // 人口指标（有同比字段）
     'land_area': { title: '行政区域土地面积', unit: '平方公里', table: 'population_indicators' },
+    'households': { title: '户籍户数', unit: '户', table: 'population_indicators' },
+    'registered_pop': { title: '户籍人口', unit: '万人', table: 'population_indicators' },
+
+    // 其他指标（无同比字段，但可以显示数值）
+    'gdp': { title: '地区生产总值', unit: '亿元', table: 'economic_indicators' },
     'road_mileage': { title: '公路里程', unit: '公里', table: 'infrastructure_indicators' },
-    'mobile_users': { title: '移动电话用户', unit: '户', table: 'infrastructure_indicators' }
+    'mobile_users': { title: '移动电话用户', unit: '户', table: 'infrastructure_indicators' },
+    'broadband_users': { title: '互联网宽带接入用户', unit: '户', table: 'infrastructure_indicators' },
+    'industrial_enterprises': { title: '规模以上工业企业单位数', unit: '个', table: 'industry_trade_indicators' },
+    'retail_sales': { title: '社会消费品零售总额', unit: '万元', table: 'industry_trade_indicators' },
+    'export_total_rmb': { title: '出口总额_人民币', unit: '万元', table: 'industry_trade_indicators' },
+    'primary_schools': { title: '小学学校数', unit: '所', table: 'edu_culture_indicators' },
+    'middle_schools': { title: '普通中学学校数', unit: '所', table: 'edu_culture_indicators' },
+    'patents_granted': { title: '全年专利授权', unit: '件', table: 'edu_culture_indicators' },
+    'medical_beds': { title: '医疗卫生机构床位数', unit: '张', table: 'medical_social_indicators' },
+    'medical_tech_personnel': { title: '医疗卫生技术人员', unit: '人', table: 'medical_social_indicators' },
+    'medical_insurance_users': { title: '基本医疗保险参保人数', unit: '人', table: 'medical_social_indicators' }
   };
 
   return indicatorsMap[key];

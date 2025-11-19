@@ -4,7 +4,7 @@
     <a-card class="filter-bar" size="small">
       <a-row :gutter="16" align="middle">
         <!-- 城市 -->
-        <a-col :span="5">
+        <a-col :span="6">
           <a-form-item label="城市" style="margin: 0">
             <a-select v-model="params.city"
                       placeholder="请选择城市"
@@ -18,7 +18,7 @@
         </a-col>
 
         <!-- 县区 -->
-        <a-col :span="5">
+        <a-col :span="6">
           <a-form-item label="县区" style="margin: 0">
             <a-select v-model="params.countyId"
                       placeholder="全部县区"
@@ -30,21 +30,8 @@
           </a-form-item>
         </a-col>
 
-        <!-- 政策类型 -->
-        <a-col :span="5">
-          <a-form-item label="政策类型" style="margin: 0">
-            <a-select v-model="params.policyType"
-                      placeholder="全部政策"
-                      allow-clear
-                      @focus="loadPolicyTypes"
-                      style="width: 100%">
-              <a-select-option v-for="p in policyTypes" :key="p" :value="p">{{ p }}</a-select-option>
-            </a-select>
-          </a-form-item>
-        </a-col>
-
         <!-- 年份区间 -->
-        <a-col :span="7">
+        <a-col :span="10">
           <a-form-item label="年份区间" style="margin: 0">
             <a-row :gutter="8">
               <a-col :span="10">
@@ -88,6 +75,7 @@
       <!-- 左侧指标树 -->
       <a-col :span="5">
         <a-card title="选择指标" size="small">
+          <div class="indicator-tip">请选择指标并点击查询</div>
           <a-tree v-model:checkedKeys="checkedKeys"
                   :tree-data="indicatorTree"
                   checkable
@@ -105,7 +93,6 @@
                               :value="card.value" :yoy="card.yoy"/>
             </a-col>
           </a-row>
-          <div v-else class="no-data">请选择指标并点击查询</div>
 
           <!-- 图表区 -->
           <a-card size="small" class="chart-card">
@@ -142,7 +129,6 @@ import {
   getCounties,
   getIndicatorsTree,
   getAnalysisData,
-  getPolicyTypes,
   exportCsvData
 } from '@/api/analysis'
 
@@ -159,11 +145,9 @@ export default {
       loading: false,
       cities: [],
       counties: [],
-      policyTypes: [],
       params: { 
         city: '', 
-        countyId: '', 
-        policyType: '' 
+        countyId: '' 
       },
       startYear: '2015',
       endYear: '2023',
@@ -181,12 +165,11 @@ export default {
     this.initChart()
     this.loadCities()  // 直接加载内蒙古的城市
     this.loadIndicators()
-    this.loadPolicyTypes()
   },
   watch: {
     'params.city'(newVal) {
-    this.loadCounties();
-  },
+      this.loadCounties();
+    },
     checkedKeys() {
       this.checkedIndicators = this.flattenTree(this.indicatorTree).filter(
         item => this.checkedKeys.includes(item.key)
@@ -224,14 +207,6 @@ export default {
         this.indicatorTree = await getIndicatorsTree()
       } catch (error) {
         message.error(error.error || '加载指标树失败')
-      }
-    },
-    
-    async loadPolicyTypes() {
-      try {
-        this.policyTypes = await getPolicyTypes()
-      } catch (error) {
-        message.error(error.error || '加载政策类型失败')
       }
     },
     
@@ -280,7 +255,7 @@ export default {
     async handleQuery() {
       if (!this.validateYears()) return
       if (this.checkedKeys.length === 0) {
-        message.warning('请至少选择一个指标')
+        message.warning('请选择指标并点击查询')
         return
       }
       
@@ -372,7 +347,7 @@ export default {
     
     async handleExportCsv() {
       if (this.checkedKeys.length === 0) {
-        message.warning('请至少选择一个指标')
+        message.warning('请选择指标并点击查询')
         return
       }
       
@@ -426,10 +401,10 @@ export default {
 .chart-card {
   margin-top: 12px;
 }
-.no-data {
-  text-align: center;
-  padding: 40px 0;
+.indicator-tip {
   color: #999;
+  padding: 8px 0;
+  font-size: 14px;
 }
 .filter-bar .ant-select-selector,
 .filter-bar .ant-input,
