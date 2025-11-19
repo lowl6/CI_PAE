@@ -1,0 +1,12 @@
+data_id,researcher_id,collection_role
+DAT001,RSR001,主记录人
+DAT002,RSR002,访谈主持
+DAT003,RSR004,数据整理
+DAT004,RSR003,政策咨询
+DAT005,RSR001,案例分析
+DAT006,RSR002,实地走访
+DAT007,RSR003,数据核实
+DAT008,RSR001,经济模型分析
+DAT009,RSR002,社会学观察
+DAT010,RSR003,生态评估
+DAT011,RSR004,数据采集

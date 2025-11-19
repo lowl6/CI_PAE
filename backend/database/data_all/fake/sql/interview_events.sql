@@ -1,0 +1,13 @@
+START TRANSACTION;
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT001', '武川县农牧业局会议室', '2021-05-10', '马铃薯良种补贴政策实施五年回顾与产业可持续性评估');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT002', '林西县五十家子镇卫生院', '2022-08-15', '健康扶贫“兜底保障”工程的长期防返贫效果调研');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT003', '阿尔山市天池镇', '2021-06-20', '后疫情时代旅游扶贫产业的恢复与转型升级座谈');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT004', '扎赉特旗好力保镇村委会', '2022-09-12', '农村饮水安全工程后期管护机制与水质监测回访');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT005', '科右中旗图什业图广场', '2023-03-05', '非遗刺绣产业对妇女就业增收的长效机制研究');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT006', '化德县服装产业园', '2021-11-20', '京蒙协作项目资产移交后的运营效益与带动能力评估');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT007', '呼和浩特市火车站', '2022-02-28', '外出务工人员稳岗就业情况及交通补贴政策优化建议');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT008', '卓资县熏鸡加工厂', '2021-10-15', '特色产业链金融支持退出后的企业自主造血能力调查');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT009', '赤峰市巴林左旗安置点', '2022-06-10', '易地扶贫搬迁后续设施农业对社区融入的促进作用');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT010', '苏尼特右旗草原深处', '2023-07-25', '生态补奖机制下护林员岗位对防止规模性返贫的贡献');
+INSERT INTO `interview_events` (`event_id`, `location`, `event_date`, `topic`) VALUES ('EVT011', '通辽市科左后旗电商中心', '2021-11-11', '农村电商服务站运营现状及农产品上行数据分析');
+COMMIT;

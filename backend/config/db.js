@@ -5,11 +5,12 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 // 创建数据库连接池（连接池比单次连接更高效，避免频繁创建/关闭连接）
+// 注意：初始连接不指定数据库，允许在数据库不存在时也能连接
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME || 'ci_pae',
+    // database: process.env.DB_NAME || 'ci_pae', // 暂不指定，由 initDb.js 创建后再使用
     port: parseInt(process.env.DB_PORT) || 3306,
     waitForConnections: true,
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 10,
@@ -39,8 +40,14 @@ async function testDbConnection() {
     }
 }
 
-// 执行测试和初始化
-testDbConnection();
+// 仅在非测试脚本环境下自动执行
+// 检查是否是通过 test-init-db.js 运行
+const isTestScript = process.argv.some(arg => arg.includes('test-init-db'));
+
+if (!isTestScript) {
+    // 正常启动服务器时才自动测试连接
+    testDbConnection();
+}
 
 // 导出连接池，供其他文件调用
 module.exports = pool;

@@ -3,8 +3,9 @@
 **CI-PAE**（Campaign Imprints: Intelligent Extraction System for Poverty Alleviation Experience）是一个全栈 Web 应用，展示了用于数据分析和自然语言处理（NLP）驱动洞察的骨架架构。项目分为以下两个部分：
 
 - **后端**：基于 Express.js 的 API（运行在 3001 端口），采用 controller → service → mock-data 的分层结构
+cd backend && npm run dev
 - **前端**：基于 Vue 3 + Vite 的单页应用（SPA，运行在 5174 端口），使用基于路由的导航和 Axios API 客户端
-
+cd frontend && npm run dev 
 **关键背景**：当前后端服务返回的是模拟数据，数据库/机器学习模型的集成点位于 `backend/services/` 中，标记为 `TODO`。
 
 ---
