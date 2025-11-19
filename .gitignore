@@ -1,2 +1,29 @@
-node_modules
-null
+# 依赖目录
+node_modules/
+*/node_modules/
+
+# 环境变量文件 - 请勿提交到 Git
+.env
+
+# 日志文件
+*.log
+npm-debug.log*
+
+# 构建输出
+dist/
+build/
+.cache/
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS 相关
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+.temp/
