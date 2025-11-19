@@ -100,7 +100,7 @@ exports.getIndicatorsTree = async (req, res) => {
   }
 };
 
-// 获取政策类型
+// 获取政策类型 (这个函数重复了, 但我们保留它以防万一)
 exports.getPolicyTypes = async (req, res) => {
   try {
     const [types] = await pool.query(
@@ -120,9 +120,10 @@ exports.getAnalysisData = async (req, res) => {
     const { city, countyId, policyType, startYear, endYear, indicators } = req.body;
 
     // 如果没有选择具体县区，获取该城市下的所有县区
+    // 只保留选中的县区（如果有选择）
     let countyIds = [];
     if (countyId) {
-      countyIds = [countyId];
+      countyIds = [countyId]; // 仅包含选中的单个县区
     } else if (city) {
       const [counties] = await pool.query(
         'SELECT county_id FROM counties WHERE city = ? AND province = ?',
@@ -177,25 +178,26 @@ exports.getAnalysisData = async (req, res) => {
         const indicatorInfo = getIndicatorInfo(indicatorKey);
         if (!indicatorInfo) continue;
 
-        // 查询最新年份的数据
-        // 修改：排除GDP的同比字段
+        let yoyField = null;
         let queryFields = indicatorKey;
+
         // 只有非GDP指标才查询同比字段
         if (!['gdp', 'gdp_primary', 'gdp_secondary', 'gdp_tertiary'].includes(indicatorKey)) {
-          const yoyField = `${indicatorKey}_yoy`;
+          yoyField = `${indicatorKey}_yoy`;
           queryFields += `, ${yoyField}`;
         }
 
+        // --- 修复开始 (SQL 语法 1) ---
+        // 将 SQL 查询语句放在一行，移除换行符和多余空格
         const [data] = await pool.query(
-          `SELECT ${queryFields} FROM ${indicatorInfo.table} 
-     WHERE county_id = ? AND year = ?`,
+          `SELECT ${queryFields} FROM ${indicatorInfo.table} WHERE county_id = ? AND year = ?`,
           [currentCountyId, endYear]
         );
+        // --- 修复结束 (SQL 语法 1) ---
 
         if (data.length > 0) {
           const value = data[0][indicatorKey];
-          // 修改：处理可能不存在的同比字段
-          const yoy = data[0][yoyField] !== undefined ? data[0][yoyField] : null;
+          const yoy = (yoyField && data[0][yoyField] !== undefined) ? data[0][yoyField] : null;
 
           cards.push({
             name: indicatorInfo.title,
@@ -219,11 +221,12 @@ exports.getAnalysisData = async (req, res) => {
 
         const seriesData = [];
         for (const year of years) {
+          // --- 修复开始 (SQL 语法 2) ---
           const [data] = await pool.query(
-            `SELECT ${indicatorKey} FROM ${indicatorInfo.table} 
-             WHERE county_id = ? AND year = ?`,
+            `SELECT ${indicatorKey} FROM ${indicatorInfo.table} WHERE county_id = ? AND year = ?`,
             [currentCountyId, year]
           );
+          // --- 修复结束 (SQL 语法 2) ---
 
           seriesData.push(data.length > 0 && data[0][indicatorKey] !== null
             ? parseFloat(data[0][indicatorKey])
@@ -245,11 +248,12 @@ exports.getAnalysisData = async (req, res) => {
           for (const countyId of countyIds) {
             const seriesData = [];
             for (const year of years) {
+              // --- 修复开始 (SQL 语法 3) ---
               const [data] = await pool.query(
-                `SELECT ${indicatorKey} FROM ${indicatorInfo.table} 
-                 WHERE county_id = ? AND year = ?`,
+                `SELECT ${indicatorKey} FROM ${indicatorInfo.table} WHERE county_id = ? AND year = ?`,
                 [countyId, year]
               );
+              // --- 修复结束 (SQL 语法 3) ---
 
               seriesData.push(data.length > 0 && data[0][indicatorKey] !== null
                 ? parseFloat(data[0][indicatorKey])

@@ -6,11 +6,10 @@
         <!-- 城市 -->
         <a-col :span="6">
           <a-form-item label="城市" style="margin: 0">
-            <a-select v-model="params.city"
-                      placeholder="请选择城市"
+            <a-select v-model:value="selectedCity"  placeholder="请选择城市"
                       allow-clear
                       @focus="loadCities"
-                      @change="loadCounties"
+                      @change="handleCityChange"
                       style="width: 100%">
               <a-select-option v-for="c in cities" :key="c" :value="c">{{ c }}</a-select-option>
             </a-select>
@@ -20,11 +19,10 @@
         <!-- 县区 -->
         <a-col :span="6">
           <a-form-item label="县区" style="margin: 0">
-            <a-select v-model="params.countyId"
-                      placeholder="全部县区"
+            <a-select v-model:value="selectedCountyId"  placeholder="请选择县区"
                       allow-clear
-                      @focus="loadCounties"
-                      style="width: 100%">
+                      style="width: 100%"
+                      :disabled="!selectedCity">
               <a-select-option v-for="ct in counties" :key="ct.county_id" :value="ct.county_id">{{ ct.county_name }}</a-select-option>
             </a-select>
           </a-form-item>
@@ -36,7 +34,7 @@
             <a-row :gutter="8">
               <a-col :span="10">
                 <a-input 
-                  v-model="startYear" 
+                  v-model:value="startYear" 
                   placeholder="开始年份" 
                   type="number"
                   min="2015"
@@ -48,7 +46,7 @@
               </a-col>
               <a-col :span="10">
                 <a-input 
-                  v-model="endYear" 
+                  v-model:value="endYear" 
                   placeholder="结束年份" 
                   type="number"
                   min="2015"
@@ -145,10 +143,8 @@ export default {
       loading: false,
       cities: [],
       counties: [],
-      params: { 
-        city: '', 
-        countyId: '' 
-      },
+      selectedCity: '',
+      selectedCountyId: '',
       startYear: '2015',
       endYear: '2023',
       indicatorTree: [],
@@ -163,13 +159,10 @@ export default {
   },
   mounted() {
     this.initChart()
-    this.loadCities()  // 直接加载内蒙古的城市
+    this.loadCities()
     this.loadIndicators()
   },
   watch: {
-    'params.city'(newVal) {
-      this.loadCounties();
-    },
     checkedKeys() {
       this.checkedIndicators = this.flattenTree(this.indicatorTree).filter(
         item => this.checkedKeys.includes(item.key)
@@ -186,17 +179,22 @@ export default {
     /* ===== 加载数据 ===== */
     async loadCities() {
       try {
-        // 直接加载内蒙古的城市，不需要传省份参数
         this.cities = await getCities()
       } catch (error) {
         message.error(error.error || '加载城市失败')
       }
     },
     
-    async loadCounties() {
+    async loadCounties(city) {
       try {
-        // 传递当前选中的城市（可能为空）
-        this.counties = await getCounties(this.params.city);
+        this.counties = await getCounties(city);
+        
+        // --- 诊断日志 ---
+        // 这行会打印出 API 返回的县区列表
+        console.log('API 返回的县区数据:', this.counties); 
+        // --- 诊断日志结束 ---
+
+        this.selectedCountyId = '' // 清空县区选择
       } catch (error) {
         message.error(error.error || '加载县区失败');
       }
@@ -208,6 +206,12 @@ export default {
       } catch (error) {
         message.error(error.error || '加载指标树失败')
       }
+    },
+    
+    /* ===== 事件处理 ===== */
+    handleCityChange(city) {
+      this.selectedCity = city
+      this.loadCounties(city)
     },
     
     /* ===== 工具方法 ===== */
@@ -252,8 +256,25 @@ export default {
     },
     
     /* ===== 查询数据 ===== */
+    /* ===== 查询数据 ===== */
     async handleQuery() {
+
+      // --- 诊断日志 ---
+      // 这行会打印出你点击查询按钮那一刻，县区 ID 到底是什么值
+      console.log('点击查询时, selectedCountyId 的值是:', this.selectedCountyId);
+      // --- 诊断日志结束 ---
+
       if (!this.validateYears()) return
+      if (!this.selectedCity) {
+        message.warning('请选择城市')
+        return
+      }
+      
+      if (this.selectedCountyId === '' || this.selectedCountyId === null || this.selectedCountyId === undefined) {
+        message.warning('请选择县区')
+        return
+      }
+
       if (this.checkedKeys.length === 0) {
         message.warning('请选择指标并点击查询')
         return
@@ -262,13 +283,15 @@ export default {
       this.loading = true
       try {
         const payload = {
-          ...this.params,
+          city: this.selectedCity,
+          countyId: this.selectedCountyId,
           startYear: this.startYear,
           endYear: this.endYear,
           indicators: this.checkedKeys
         }
         
-        // 调用真实API获取数据
+        console.log('查询参数:', payload);
+        
         const result = await getAnalysisData(payload)
         
         if (result.ok) {
@@ -346,6 +369,10 @@ export default {
     },
     
     async handleExportCsv() {
+      if (!this.selectedCity || !this.selectedCountyId) {
+        message.warning('请选择城市和县区')
+        return
+      }
       if (this.checkedKeys.length === 0) {
         message.warning('请选择指标并点击查询')
         return
@@ -353,7 +380,8 @@ export default {
       
       try {
         const params = {
-          ...this.params,
+          city: this.selectedCity,
+          countyId: this.selectedCountyId,
           startYear: this.startYear,
           endYear: this.endYear,
           indicators: this.checkedKeys.join(',')
@@ -361,14 +389,12 @@ export default {
         
         const blob = await exportCsvData(params)
         
-        // 创建下载链接
         const url = window.URL.createObjectURL(new Blob([blob]))
         const a = document.createElement('a')
         a.href = url
         a.download = `内蒙古贫困县分析数据_${new Date().getTime()}.csv`
         a.click()
         
-        // 释放URL对象
         window.URL.revokeObjectURL(url)
         message.success('CSV导出成功')
       } catch (error) {
