@@ -1,0 +1,13 @@
+START TRANSACTION;
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT001', 'RSR001', '主记录人');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT002', 'RSR002', '访谈主持');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT003', 'RSR004', '数据整理');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT004', 'RSR003', '政策咨询');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT005', 'RSR001', '案例分析');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT006', 'RSR002', '实地走访');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT007', 'RSR003', '数据核实');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT008', 'RSR001', '经济模型分析');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT009', 'RSR002', '社会学观察');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT010', 'RSR003', '生态评估');
+INSERT INTO `rel_data_researcher` (`data_id`, `researcher_id`, `collection_role`) VALUES ('DAT011', 'RSR004', '数据采集');
+COMMIT;
