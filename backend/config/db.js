@@ -10,7 +10,7 @@ const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD,
-    // database: process.env.DB_NAME || 'ci_pae', // 暂不指定，由 initDb.js 创建后再使用
+    database: process.env.DB_NAME || 'ci_pae', // 暂不指定，由 initDb.js 创建后再使用
     port: parseInt(process.env.DB_PORT) || 3306,
     waitForConnections: true,
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 10,
@@ -23,11 +23,11 @@ async function testDbConnection() {
         const connection = await pool.getConnection();
         console.log('✓ MySQL 数据库连接成功！');
         connection.release();
-        
+
         // 检查并初始化数据库
         const { checkDatabaseInitialized, initDatabase } = require('./initDb');
         const isInitialized = await checkDatabaseInitialized();
-        
+
         if (!isInitialized) {
             console.log('检测到数据库未初始化，开始自动初始化...');
             await initDatabase();
