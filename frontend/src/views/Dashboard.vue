@@ -1,27 +1,6 @@
 <template>
   <div class="app-container">
-    <!-- 顶部导航栏 -->
-    <header class="navbar">
-      <div class="navbar-left">
-        <div class="logo">
-          <img src="/icons/logo.png" alt="Logo" class="logo-icon" @error="onLogoError">
-          <span class="system-name">攻坚印记</span>
-          <span class="system-desc">内蒙古自治区脱贫攻坚经验智能提炼系统</span>
-        </div>
-      </div>
-      <div class="navbar-right">
-        <div class="user-info">
-          <img src="https://picsum.photos/id/1005/40/40" alt="用户头像" class="user-avatar">
-          <span class="user-name">{{ username }}</span>
-        </div>
-        <button class="logout-btn" @click="handleLogout">
-          登出
-        </button>
-        <button class="refresh-btn" @click="refreshData">
-          <span class="icon-refresh">🔄</span>
-        </button>
-      </div>
-    </header>
+
 
     <!-- 主内容区 -->
     <main class="main-content">
