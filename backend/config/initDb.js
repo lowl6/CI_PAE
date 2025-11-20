@@ -159,7 +159,6 @@ async function importInitialData() {
             { file: path.join(dataAllPath, 'real/sql/infrastructure_indicators.sql'), table: 'infrastructure_indicators' },
             { file: path.join(dataAllPath, 'real/sql/edu_culture_indicators.sql'), table: 'edu_culture_indicators' },
             { file: path.join(dataAllPath, 'real/sql/medical_social_indicators.sql'), table: 'medical_social_indicators' },
-            
             // 模拟数据（fake/sql）
             { file: path.join(dataAllPath, 'fake/sql/policies.sql'), table: 'policies' },
             { file: path.join(dataAllPath, 'fake/sql/policy_resources.sql'), table: 'policy_resources' },
@@ -169,6 +168,7 @@ async function importInitialData() {
             { file: path.join(dataAllPath, 'fake/sql/researchers.sql'), table: 'researchers' },
             { file: path.join(dataAllPath, 'fake/sql/rel_interviewee_event.sql'), table: 'rel_interviewee_event' },
             { file: path.join(dataAllPath, 'fake/sql/rel_data_researcher.sql'), table: 'rel_data_researcher' },
+            { file: path.join(dataAllPath, 'fake/sql/rel_policy_county.sql'), table: 'rel_policy_county' },
         ];
 
         let successCount = 0;

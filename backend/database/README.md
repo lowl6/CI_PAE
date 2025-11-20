@@ -115,6 +115,7 @@ Get-Content database\data_all\real\sql\counties.sql | mysql -u root -p ci_pae
 - **researchers.sql** - 调研人员信息
 - **rel_interviewee_event.sql** - 受访者与事件关联
 - **rel_data_researcher.sql** - 数据与调研者关联
+- **rel_policy_county.sql** - 政策与县关联
 
 ## 数据重新导入
 
@@ -148,9 +149,9 @@ mysql -u root -p ci_pae < database/data_all/real/sql/counties.sql
 ```
 
 **注意外键约束**：清空数据时请按以下顺序：
-1. 先清空关联表（rel_*）
-2. 再清空外键表（indicators, policy_resources等）
-3. 最后清空主表（counties, policies等）
+1. 先清空关联表（rel_data_researcher, rel_interviewee_event, rel_policy_county）
+2. 再清空外键表（interview_data, interviewees, interview_events, researchers, policy_resources, medical_social_indicators, edu_culture_indicators, infrastructure_indicators, industry_trade_indicators, agriculture_indicators, population_indicators, economic_indicators）
+3. 最后清空主表（counties, policies）
 
 **建议**：如果不确定顺序，直接删除数据库重建更安全快捷。
 
@@ -188,7 +189,7 @@ DB_NAME=ci_pae
 
 ## 注意事项
 
-- ✅ **已提交到 Git**：`init.sql` 文件（表结构+测试数据）
+- ✅ **已提交到 Git**：`init.sql` 文件（表结构定义）、`data_all/` 目录（示例数据）
 - ❌ **不要提交**：`.env` 文件、生产环境真实数据、数据库备份文件
 - 🔒 生产环境务必修改默认密码和敏感信息
 - 📊 定期备份生产数据库

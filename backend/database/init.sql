@@ -267,73 +267,60 @@ CREATE TABLE `rel_data_researcher` (
   CONSTRAINT `fk_rel_dr_researcher` FOREIGN KEY (`researcher_id`) REFERENCES `researchers` (`researcher_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='访谈数据与调研者关联表';
 
+DROP TABLE IF EXISTS `rel_policy_county`;
+CREATE TABLE `rel_policy_county` (
+  `policy_id` VARCHAR(50) NOT NULL COMMENT 'PolicyID [FK]',
+  `county_id` VARCHAR(50) NOT NULL COMMENT 'CountyID [FK]',
+  PRIMARY KEY (`policy_id`, `county_id`),
+  CONSTRAINT `fk_rpc_policy` FOREIGN KEY (`policy_id`) REFERENCES `policies` (`policy_id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_rpc_county` FOREIGN KEY (`county_id`) REFERENCES `counties` (`county_id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='政策与县关联表';
+
 SET FOREIGN_KEY_CHECKS = 1;
 
+SELECT '数据库表结构初始化完成！数据导入请使用 initDb.js 或手动执行上述 IMPORT_CMD 命令' AS message;
+
 -- ===============================
--- 初始数据说明
+-- 数据初始化说明（2024+ 版本，自动适配 data_all 目录）
 -- ===============================
 -- 数据来源：backend/database/data_all 目录
--- - real/sql: 真实的832个贫困县数据及各类指标
--- - fake/sql: 模拟的访谈、政策等调研数据
--- 
--- 注意：initDb.js 会在插入前检查表是否为空，避免重复插入
--- 如需重新导入数据，请先清空对应表的数据
+--   - real/sql/   真实832县及各类指标数据
+--   - fake/sql/   模拟访谈、政策等调研数据
+--
+-- 数据导入顺序（推荐，避免外键冲突）：
+-- 1. 真实数据（real/sql）：
+--    counties → economic_indicators → population_indicators
+--    → agriculture_indicators → industry_trade_indicators
+--    → infrastructure_indicators → edu_culture_indicators
+--    → medical_social_indicators
+-- 2. 模拟数据（fake/sql）：
+--    policies → policy_resources → interview_events
+--    → interviewees → interview_data → researchers
+--    → rel_interviewee_event → rel_data_researcher
+--
+-- 推荐使用 backend/config/initDb.js 自动导入（支持表检测/事务/顺序/幂等）
+-- 如需手动导入，可依次执行：
+--
+-- # 真实数据
+-- mysql -u root -p ci_pae < backend/database/data_all/real/sql/counties.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/real/sql/economic_indicators.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/real/sql/population_indicators.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/real/sql/agriculture_indicators.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/real/sql/industry_trade_indicators.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/real/sql/infrastructure_indicators.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/real/sql/edu_culture_indicators.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/real/sql/medical_social_indicators.sql
+--
+-- # 模拟数据
+-- mysql -u root -p ci_pae < backend/database/data_all/fake/sql/policies.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/fake/sql/policy_resources.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/fake/sql/interview_events.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/fake/sql/interviewees.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/fake/sql/interview_data.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/fake/sql/researchers.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/fake/sql/rel_interviewee_event.sql
+-- mysql -u root -p ci_pae < backend/database/data_all/fake/sql/rel_data_researcher.sql
 
--- ===============================
--- 初始数据：真实832个贫困县及指标数据
--- ===============================
+-- 注意：initDb.js 会自动检测表数据，避免重复导入。如需重导请先清空表或删除数据库。
 
--- SOURCE: backend/database/data_all/real/sql/counties.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/real/sql/counties.sql
-
--- SOURCE: backend/database/data_all/real/sql/economic_indicators.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/real/sql/economic_indicators.sql
-
--- SOURCE: backend/database/data_all/real/sql/population_indicators.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/real/sql/population_indicators.sql
-
--- SOURCE: backend/database/data_all/real/sql/agriculture_indicators.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/real/sql/agriculture_indicators.sql
-
--- SOURCE: backend/database/data_all/real/sql/industry_trade_indicators.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/real/sql/industry_trade_indicators.sql
-
--- SOURCE: backend/database/data_all/real/sql/infrastructure_indicators.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/real/sql/infrastructure_indicators.sql
-
--- SOURCE: backend/database/data_all/real/sql/edu_culture_indicators.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/real/sql/edu_culture_indicators.sql
-
--- SOURCE: backend/database/data_all/real/sql/medical_social_indicators.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/real/sql/medical_social_indicators.sql
-
--- ===============================
--- 初始数据：模拟的访谈与政策数据
--- ===============================
-
--- SOURCE: backend/database/data_all/fake/sql/policies.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/fake/sql/policies.sql
-
--- SOURCE: backend/database/data_all/fake/sql/policy_resources.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/fake/sql/policy_resources.sql
-
--- SOURCE: backend/database/data_all/fake/sql/interviewees.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/fake/sql/interviewees.sql
-
--- SOURCE: backend/database/data_all/fake/sql/interview_events.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/fake/sql/interview_events.sql
-
--- SOURCE: backend/database/data_all/fake/sql/interview_data.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/fake/sql/interview_data.sql
-
--- SOURCE: backend/database/data_all/fake/sql/researchers.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/fake/sql/researchers.sql
-
--- SOURCE: backend/database/data_all/fake/sql/rel_interviewee_event.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/fake/sql/rel_interviewee_event.sql
-
--- SOURCE: backend/database/data_all/fake/sql/rel_data_researcher.sql
--- IMPORT_CMD: mysql -u root -p ci_pae < backend/database/data_all/fake/sql/rel_data_researcher.sql
-
--- 完成提示
-SELECT '数据库表结构初始化完成！数据导入请使用 initDb.js 或手动执行上述 IMPORT_CMD 命令' AS message;
+SELECT '数据库表结构初始化完成！数据导入请使用 initDb.js 或按上述顺序手动导入 SQL 文件' AS message;
