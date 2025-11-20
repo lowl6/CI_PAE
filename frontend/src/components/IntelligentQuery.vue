@@ -14,28 +14,26 @@
     </button>
     
     <!-- 结果展示 -->
-    <div v-if="result" class="result-container">
+    <div v-if="queryData" class="result-container">
 
       <!-- ============================ -->
       <!-- 1. 分析报告 (默认展开) -->
       <!-- ============================ -->
       <div class="result-section">
         <h3>分析报告</h3>
-        <!-- v-html 会渲染 marked 解析后的 HTML -->
-        <div class="report-content" v-html="formatReport(result.report)"></div>
+        <div class="report-content" v-html="formatReport(queryData.report)"></div>
       </div>
 
       <!-- ============================ -->
       <!-- 2. 查询结果 (默认折叠) -->
       <!-- ============================ -->
       <div class="result-section">
-        <!-- 可点击的标题 -->
         <h3 @click="isTableVisible = !isTableVisible" class="collapsible-header">
-          查询结果
+          查询结果 (数据)
           <span class="toggle-icon">{{ isTableVisible ? '▲ 折叠' : '▼ 展开' }}</span>
         </h3>
         <div v-if="isTableVisible">
-          <div v-if="!result.result || result.result.length === 0" class="no-data">
+          <div v-if="!queryData.result || queryData.result.length === 0" class="no-data">
             数据库未返回任何数据。
           </div>
           <table v-else>
@@ -45,7 +43,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(item, index) in result.result" :key="index">
+              <tr v-for="(item, index) in queryData.result" :key="index">
                 <td v-for="header in tableHeaders" :key="header">
                   {{ formatValue(item[header]) }}
                 </td>
@@ -63,8 +61,22 @@
           生成的SQL
           <span class="toggle-icon">{{ isSqlVisible ? '▲ 折叠' : '▼ 展开' }}</span>
         </h3>
-        <pre v-if="isSqlVisible">{{ result.sql }}</pre>
+        <pre v-if="isSqlVisible">{{ queryData.sql }}</pre>
       </div>
+
+      <!-- ============================ -->
+      <!-- 4. AI 规划步骤 (新增, 默认折叠) -->
+      <!-- ============================ -->
+      <div class="result-section">
+        <h3 @click="isPlanVisible = !isPlanVisible" class="collapsible-header">
+          AI 分析规划
+          <span class="toggle-icon">{{ isPlanVisible ? '▲ 折叠' : '▼ 展开' }}</span>
+        </h3>
+        <div v-if="isPlanVisible" class="plan-content">
+          {{ queryData.plan }}
+        </div>
+      </div>
+
     </div>
     
     <!-- 错误提示 -->
@@ -75,35 +87,42 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { nlpApi } from '../api/nlpApi';
-import { marked } from 'marked'; // 1. 导入 marked
+import { marked } from 'marked'; 
 
 const question = ref('');
 const isLoading = ref(false);
-const result = ref(null);
 const error = ref('');
 
-// 2. 新增: 控制折叠状态
+// 将原来的 result 重命名为 queryData，更清晰
+const queryData = ref(null); 
+
+// 控制折叠状态
 const isTableVisible = ref(false);
 const isSqlVisible = ref(false);
+const isPlanVisible = ref(false); // 新增 Plan 的折叠状态
 
-// 动态计算表头 (不变)
+// 动态计算表头
 const tableHeaders = computed(() => {
-  if (result.value && result.value.result && result.value.result.length > 0) {
-    return Object.keys(result.value.result[0]);
+  if (queryData.value && queryData.value.result && queryData.value.result.length > 0) {
+    return Object.keys(queryData.value.result[0]);
   }
   return [];
 });
 
-// 格式化单元格值 (不变)
+// 格式化单元格值
 const formatValue = (value) => {
   if (value === null) return 'N/A';
+  // 你可以在这里添加更多格式化，例如日期或数字
+  // 示例：将 "2023-10-01T00:00:00.000Z" 格式化为 "2023-10-01"
+  if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T/)) {
+    return value.split('T')[0];
+  }
   return value;
 };
 
-// 3. 更新: 使用 marked 解析报告
+// 使用 marked 解析报告
 const formatReport = (report) => {
   if (!report) return '';
-  // marked.parse 会将 Markdown 字符串转换为 HTML
   return marked.parse(report);
 };
 
@@ -115,20 +134,25 @@ const handleQuery = async () => {
   
   // 重置状态
   error.value = '';
-  result.value = null;
+  queryData.value = null; // 重置数据
   isLoading.value = true;
   
-  // 4. 新增: 重置折叠状态
+  // 重置折叠状态
   isTableVisible.value = false;
   isSqlVisible.value = false;
+  isPlanVisible.value = false; // 重置 Plan
   
   try {
     const response = await nlpApi.submitQuery(question.value);
     if (response.data.ok) {
-      result.value = response.data.data;
+      queryData.value = response.data.data; // 绑定到 queryData
+      // 如果报告中包含错误信息，也将其显示在顶部的错误提示中
+      if (queryData.value.report.includes("失败") || queryData.value.report.includes("出错")) {
+        error.value = "查询处理中发生错误，详情请查看报告。";
+      }
     } else {
       error.value = response.data.error;
-    }
+G    }
   } catch (err) {
     const apiError = err.response?.data?.error || '查询失败，请稍后重试';
     error.value = apiError;
@@ -140,7 +164,7 @@ const handleQuery = async () => {
 </script>
 
 <style scoped>
-/* --- 现有样式 (无变化) --- */
+/* --- 现有样式 (基本无变化) --- */
 .query-input {
   width: 100%;
   height: 100px;
@@ -178,7 +202,7 @@ const handleQuery = async () => {
   margin-bottom: 10px;
 }
 .result-section pre {
-  background-color: #f5f5f5;
+  background-color: #f5f5ff;
   padding: 10px;
   border-radius: 4px;
   overflow-x: auto;
@@ -218,21 +242,21 @@ th {
   border-radius: 4px;
 }
 
-/* --- 5. 新增样式 --- */
+/* --- 新增/修改样式 --- */
 
-/* 可折叠标题的样式 */
+/* 可折叠标题 */
 .collapsible-header {
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  user-select: none; /* 防止点击时选中文本 */
+  user-select: none;
   border-radius: 4px;
   padding-top: 5px;
   padding-bottom: 5px;
 }
 .collapsible-header:hover {
-  background-color: #f9f9f9; /* 悬停时轻微背景色 */
+  background-color: #f9f9f9;
 }
 .toggle-icon {
   font-size: 14px;
@@ -240,21 +264,30 @@ th {
   font-weight: normal;
 }
 
-/*  使用 :deep() 穿透 scoped 样式,
-  美化 marked 渲染出的 HTML 
-*/
+/* AI 规划步骤的样式 */
+.plan-content {
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  color: #333;
+  font-family: 'Courier New', Courier, monospace;
+  line-height: 1.5;
+  white-space: pre-wrap; /* 保持规划文本的换行 */
+}
+
+/* Markdown 渲染样式 */
 .report-content :deep(p) {
-  margin: 0 0 12px 0; /* 段落下边距 */
+  margin: 0 0 12px 0;
 }
 .report-content :deep(ul),
 .report-content :deep(ol) {
-  padding-left: 25px; /* 列表缩进 */
+  padding-left: 25px;
   margin-bottom: 12px;
 }
 .report-content :deep(li) {
-  margin-bottom: 5px; /* 列表项间距 */
+  margin-bottom: 5px;
 }
 .report-content :deep(strong) {
-  color: #333; /* 加深粗体颜色 */
+  color: #333;
 }
 </style>
