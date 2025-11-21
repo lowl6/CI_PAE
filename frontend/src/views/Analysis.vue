@@ -154,7 +154,9 @@ export default {
       cards: [],
       drawerVisible: false,
       selectedCounties: [],
-      checkedIndicators: []
+      checkedIndicators: [],
+      autoQueryTimer: null, // 防抖定时器
+      autoQueryDelay: 500   // 自动查询延迟毫秒
     }
   },
   mounted() {
@@ -167,9 +169,37 @@ export default {
       this.checkedIndicators = this.flattenTree(this.indicatorTree).filter(
         item => this.checkedKeys.includes(item.key)
       )
+      // 指标选择变化后尝试自动查询
+      this.scheduleAutoQuery()
+    }
+    ,
+    selectedCountyId(newVal) {
+      if (newVal) {
+        this.scheduleAutoQuery()
+      }
+    },
+    startYear() {
+      this.scheduleAutoQuery()
+    },
+    endYear() {
+      this.scheduleAutoQuery()
     }
   },
   methods: {
+    /* ===== 自动查询防抖调度 ===== */
+    scheduleAutoQuery() {
+      // 初始阶段或未满足查询条件时不触发
+      if (!this.selectedCity || !this.selectedCountyId || this.checkedKeys.length === 0) return
+      if (!this.validateYears()) return
+      // 防抖
+      if (this.autoQueryTimer) clearTimeout(this.autoQueryTimer)
+      this.autoQueryTimer = setTimeout(() => {
+        // 二次校验，防止定时器期间状态变化
+        if (!this.selectedCity || !this.selectedCountyId || this.checkedKeys.length === 0) return
+        if (!this.validateYears()) return
+        this.handleQuery()
+      }, this.autoQueryDelay)
+    },
     /* ===== 初始化 ===== */
     initChart() {
       this.chart = echarts.init(document.getElementById('main-chart'))

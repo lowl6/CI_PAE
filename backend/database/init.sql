@@ -189,12 +189,16 @@ CREATE TABLE `policy_resources` (
   `indicator_name` VARCHAR(100) DEFAULT NULL COMMENT '指标名称',
   `category` VARCHAR(50) DEFAULT NULL COMMENT '指标类别',
   `description` TEXT COMMENT '指标描述',
+  `amount` DECIMAL(12,2) DEFAULT NULL COMMENT '投入数额',
+  `beneficiary_count` INT DEFAULT NULL COMMENT '受益人数',
+  `year` INT DEFAULT NULL COMMENT '投入年份',
   `unit` VARCHAR(50) DEFAULT NULL COMMENT '计量单位',
   `source` VARCHAR(100) DEFAULT NULL COMMENT '数据来源',
   `impact_level` VARCHAR(50) DEFAULT NULL COMMENT '影响程度',
   `related_field` VARCHAR(100) DEFAULT NULL COMMENT '关联领域',
   PRIMARY KEY (`resource_id`),
   INDEX `idx_category` (`category`),
+  INDEX `idx_year` (`year`),
   CONSTRAINT `fk_resource_policy` FOREIGN KEY (`policy_id`) REFERENCES `policies` (`policy_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='政策投入资源表';
 
