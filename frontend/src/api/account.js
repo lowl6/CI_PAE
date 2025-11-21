@@ -1,13 +1,60 @@
 // 引入 axios（用于发送 HTTP 请求）
 import axios from 'axios';
 
+// 根据环境变量动态配置 baseURL
+const getBaseURL = () => {
+  const env = import.meta.env.VITE_APP_ENV
+
+  if (env === 'production') {
+    // 生产环境：直接使用完整的后端URL
+    return `${import.meta.env.VITE_API_URL}/api`
+  } else if (env === 'lan') {
+    // 局域网环境：使用局域网IP
+    return `${import.meta.env.VITE_API_URL}/api`
+  } else {
+    // 开发环境：使用localhost
+    return 'http://localhost:3001/api'
+  }
+}
+
 // 创建 axios 实例，统一配置基础路径和请求头（避免重复写地址前缀）
 const api = axios.create({
-    baseURL: 'http://localhost:3001/api', // 后端接口的基础路径（对应 app.js 中的 /api 前缀）
+    baseURL: getBaseURL(), // 动态配置后端接口地址
     headers: {
         'Content-Type': 'application/json', // 统一设置请求体为 JSON 格式
     },
 });
+
+// 添加请求拦截器，自动添加 token
+api.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
+
+// 添加响应拦截器，处理 401 错误
+api.interceptors.response.use(
+  response => {
+    return response;
+  },
+  error => {
+    if (error.response && error.response.status === 401) {
+      // 清除本地存储并重定向到登录页
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('isLoggedIn');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // 1. 登录接口调用函数（参数为用户名和密码，返回后端响应结果）
 export const login = async (username, password) => {

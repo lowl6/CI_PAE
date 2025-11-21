@@ -1,8 +1,24 @@
 import axios from 'axios'
 
-const instance = axios.create({ 
-  baseURL: '/api', 
-  timeout: 10000 
+// 根据环境变量动态配置baseURL
+const getBaseURL = () => {
+  const env = import.meta.env.VITE_APP_ENV
+
+  if (env === 'production') {
+    // 生产环境：直接使用完整的后端URL
+    return import.meta.env.VITE_API_URL || 'http://localhost:3001'
+  } else if (env === 'lan') {
+    // 局域网环境：使用局域网IP
+    return import.meta.env.VITE_API_URL || 'http://10.47.179.167:3001'
+  } else {
+    // 开发环境：使用相对路径，由vite代理转发
+    return '/api'
+  }
+}
+
+const instance = axios.create({
+  baseURL: getBaseURL(),
+  timeout: 10000
 })
 
 // 添加请求拦截器
@@ -33,6 +49,7 @@ instance.interceptors.response.use(
       // 令牌无效或过期，清除本地存储并重定向到登录页
       localStorage.removeItem('isLoggedIn')
       localStorage.removeItem('username')
+      localStorage.removeItem('token')
       window.location.href = '/login'
     }
     return Promise.reject(error)
@@ -49,8 +66,8 @@ export default {
     getCities(){ return instance.get('/analysis/cities') },
     getCounties(params){ return instance.get('/analysis/counties', { params }) },
     getAllCounties(){ return instance.get('/analysis/all-counties') },
-    getDynamicPolicyTypes(params) { 
-      return instance.get('/analysis/dynamic-policy-types', { params }) 
+    getDynamicPolicyTypes(params) {
+      return instance.get('/analysis/dynamic-policy-types', { params })
     }
   },
   nlp: {
