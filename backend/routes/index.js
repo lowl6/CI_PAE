@@ -8,6 +8,8 @@ const authMiddleware = require('../middleware/auth')
 
 // 导入政策路由
 const policyRoutes = require('./policy')
+// 导入仪表盘路由
+const dashboardRoutes = require('./dashboard')
 
 // 认证相关路由（公开访问）
 router.post('/auth/login', authController.login)
@@ -21,6 +23,8 @@ router.post('/nlp/query', authMiddleware, nlpController.query)
 
 // 政策相关API（公开访问）
 router.use('/policies', policyRoutes)
+// 仪表盘相关API（公开访问，因为前端没有传token）
+router.use('/dashboard', dashboardRoutes)
 
 // 分析相关API（公开访问,因为前端没有传token）
 router.get('/analysis/cities', analysisController.getCities);

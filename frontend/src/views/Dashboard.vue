@@ -285,6 +285,68 @@ export default {
         });
       }
     },
+    async loadDashboardDataNew() {
+    this.loading = true;
+    this.useMockData = false;
+    
+    try {
+      console.log('开始加载Dashboard数据...');
+      
+      // 并行加载所有数据
+      const [dashboardResponse, poorCountyResponse] = await Promise.all([
+        getDashboardData(),
+        getPoorCountyData()
+      ]);
+      
+      console.log(' Dashboard API响应:', {
+        dashboardResponse,
+        poorCountyResponse
+      });
+      
+      // 更新核心指标数据
+      if (dashboardResponse && dashboardResponse.code === 200 && dashboardResponse.data) {
+        console.log('Dashboard指标数据:', dashboardResponse.data.indicators);
+        this.indicators = this.indicators.map((item, index) => {
+          const apiData = dashboardResponse.data.indicators[index];
+          return {
+            ...item,
+            value: apiData.value,
+            change: apiData.change
+          };
+        });
+      } else {
+        console.warn(' Dashboard指标数据格式不正确，使用模拟数据');
+        throw new Error('Dashboard指标数据格式不正确');
+      }
+      
+      if (poorCountyResponse && poorCountyResponse.code === 200 && poorCountyResponse.data) {
+      console.log(' Dashboard贫困县数据:', poorCountyResponse.data);
+      this.totalPoorCounties = poorCountyResponse.data.total || 0;
+        
+        // 更新每个盟市的贫困县数量
+        this.counties = this.counties.map(county => {
+          const poorData = poorCountyResponse.data.cities?.find(item => item.city === county.name);
+          return {
+            ...county,
+            poorCountyCount: poorData ? poorData.count : 0
+          };
+        });
+      } else {
+        console.warn('Dashboard贫困县数据格式不正确，使用模拟数据');
+        throw new Error('Dashboard贫困县数据格式不正确');
+      }
+      
+      console.log('Dashboard数据更新完成');
+      
+    } catch (error) {
+      console.error('加载Dashboard数据失败:', error);
+      this.useMockData = true;
+      this.updateWithMockData();
+      this.$message.warning('数据加载失败，已显示模拟数据供演示使用');
+    } finally {
+      this.loading = false;
+    }
+  },
     
     // 加载仪表盘数据
     async loadDashboardData() {
@@ -335,7 +397,8 @@ export default {
     }
   },
   mounted() {
-    this.loadDashboardData();
+    //this.loadDashboardData();
+    this.loadDashboardDataNew(); 
   }
 };
 </script>
