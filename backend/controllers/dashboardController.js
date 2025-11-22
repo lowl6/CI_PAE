@@ -1,6 +1,20 @@
 const dashboardService = require('../services/dashboardService');
+const pool = require('../config/db');
 
 class DashboardController {
+  /**
+   * 确保数据库已选择
+   */
+  async ensureDatabase() {
+    try {
+      await pool.query('USE ci_pae');
+      console.log('已选择 ci_pae 数据库');
+      return true;
+    } catch (error) {
+      console.error('选择数据库失败:', error);
+      return false;
+    }
+  }
   /**
    * 获取核心指标数据
    */
