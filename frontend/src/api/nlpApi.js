@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    timeout: 30000,
+    timeout: 300000,
     headers: {
         'Content-Type': 'application/json' // 全局设置
     }

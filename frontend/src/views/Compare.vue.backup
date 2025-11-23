@@ -154,54 +154,67 @@ export default {
         // 加载县区数据
         try {
           // 尝试从API获取县区数据
-          const countiesResp = await api.analysis.getAllCounties();
+          const countiesResp = await api.analysis.getCounties();
           console.log('API返回的县区数据:', countiesResp);
-          
-          // 检查响应数据结构并正确处理
-          if (countiesResp && countiesResp.data) {
-            // 如果是完整的 axios 响应对象
-            if (Array.isArray(countiesResp.data)) {
-              regions.value = countiesResp.data.map(county => ({
-                id: county.county_id,
-                name: county.county_name
-              }));
-            }
-          } else if (countiesResp && Array.isArray(countiesResp)) {
-            // 如果是直接返回的数组
+          if (countiesResp && Array.isArray(countiesResp)) {
             regions.value = countiesResp.map(county => ({
               id: county.county_id,
               name: county.county_name
             }));
+          } else if (countiesResp.data && Array.isArray(countiesResp.data)) {
+            regions.value = countiesResp.data.map(county => ({
+              id: county.county_id,
+              name: county.county_name
+            }));
           } else {
-            // 使用模拟数据作为后备
+            // 使用模拟数据
             regions.value = [
               { id: 'NMG000001', name: '兴和县' },
               { id: 'NMG000002', name: '化德县' },
               { id: 'NMG000003', name: '卓资县' },
               { id: 'NMG000004', name: '商都县' },
               { id: 'NMG000005', name: '四子王旗' },
-              { id: 'NMG000006', name: '察哈尔右翼中旗' },
-              { id: 'NMG000007', name: '察哈尔右翼前旗' },
-              { id: 'NMG000008', name: '察哈尔右翼后旗' },
-              { id: 'NMG000009', name: '扎赉特旗' },
-              { id: 'NMG000010', name: '科尔沁右翼中旗' }
+              { id: 'NMG000006', name: '察哈尔右翼中旗' }
             ];
           }
         } catch (error) {
           console.warn('加载县区数据失败:', error);
-          // 使用模拟数据
-          regions.value = [
-            { id: 'NMG000001', name: '兴和县' },
-            { id: 'NMG000002', name: '化德县' },
-            { id: 'NMG000003', name: '卓资县' },
-            { id: 'NMG000004', name: '商都县' },
-            { id: 'NMG000005', name: '四子王旗' },
-            { id: 'NMG000006', name: '察哈尔右翼中旗' },
-            { id: 'NMG000007', name: '察哈尔右翼前旗' },
-            { id: 'NMG000008', name: '察哈尔右翼后旗' },
-            { id: 'NMG000009', name: '扎赉特旗' },
-            { id: 'NMG000010', name: '科尔沁右翼中旗' }
-          ];
+          // 即使出错也尝试使用API返回的数据
+          try {
+            const countiesResp = await api.analysis.getCounties();
+            if (countiesResp && Array.isArray(countiesResp)) {
+              regions.value = countiesResp.map(county => ({
+                id: county.county_id,
+                name: county.county_name
+              }));
+            } else if (countiesResp.data && Array.isArray(countiesResp.data)) {
+              regions.value = countiesResp.data.map(county => ({
+                id: county.county_id,
+                name: county.county_name
+              }));
+            } else {
+              // 使用模拟数据
+              regions.value = [
+                { id: 'NMG000001', name: '兴和县' },
+                { id: 'NMG000002', name: '化德县' },
+                { id: 'NMG000003', name: '卓资县' },
+                { id: 'NMG000004', name: '商都县' },
+                { id: 'NMG000005', name: '四子王旗' },
+                { id: 'NMG000006', name: '察哈尔右翼中旗' }
+              ];
+            }
+          } catch (retryError) {
+            console.warn('重试加载县区数据也失败了:', retryError);
+            // 使用模拟数据
+            regions.value = [
+              { id: 'NMG000001', name: '兴和县' },
+              { id: 'NMG000002', name: '化德县' },
+              { id: 'NMG000003', name: '卓资县' },
+              { id: 'NMG000004', name: '商都县' },
+              { id: 'NMG000005', name: '四子王旗' },
+              { id: 'NMG000006', name: '察哈尔右翼中旗' }
+            ];
+          }
         }
         
         // 加载政策类型数据
@@ -265,14 +278,12 @@ export default {
         const response = await api.compare.getComparisonData(params);
         console.log('API返回数据:', response);
         
-        // 处理响应数据，适应不同的响应结构
-        const responseData = response.data || response;
-        if (responseData && (responseData.ok || responseData.success)) {
+        if (response.data && response.data.ok) {
           // 处理GDP趋势数据
-          gdpData.value = (responseData.data && responseData.data.gdpTrend) || responseData.gdpTrend || [];
+          gdpData.value = response.data.data.gdpTrend || [];
           
           // 处理政策效果数据
-          policyEffectData.value = (responseData.data && responseData.data.policyEffect) || responseData.policyEffect || [];
+          policyEffectData.value = response.data.data.policyEffect || [];
           
           // 表格数据 - 使用真实数据计算
           const tableData = []
@@ -285,10 +296,10 @@ export default {
             let povertyReduction = 'N/A'
             
             // 从GDP趋势数据中计算增长率
-            const gdpTrendData = (responseData.data && responseData.data.gdpTrend) || responseData.gdpTrend || [];
-            if (gdpTrendData && gdpTrendData.length > 1) {
-              const firstYearGDP = parseFloat(gdpTrendData[0][`region${index + 1}`])
-              const lastYearGDP = parseFloat(gdpTrendData[gdpTrendData.length - 1][`region${index + 1}`])
+            if (response.data.data.gdpTrend && response.data.data.gdpTrend.length > 1) {
+              const gdpData = response.data.data.gdpTrend
+              const firstYearGDP = parseFloat(gdpData[0][`region${index + 1}`])
+              const lastYearGDP = parseFloat(gdpData[gdpData.length - 1][`region${index + 1}`])
               
               if (!isNaN(firstYearGDP) && !isNaN(lastYearGDP) && firstYearGDP > 0) {
                 const growthRate = ((lastYearGDP - firstYearGDP) / firstYearGDP * 100).toFixed(2)
@@ -297,10 +308,10 @@ export default {
             }
             
             // 从政策效果数据中计算平均效果指数
-            const policyEffectData = (responseData.data && responseData.data.policyEffect) || responseData.policyEffect || [];
-            if (policyEffectData && policyEffectData.length > 0) {
-              const totalEffect = policyEffectData.reduce((sum, item) => sum + parseFloat(item[`region${index + 1}`] || 0), 0)
-              const avgEffect = (totalEffect / policyEffectData.length).toFixed(2)
+            if (response.data.data.policyEffect && response.data.data.policyEffect.length > 0) {
+              const policyData = response.data.data.policyEffect
+              const totalEffect = policyData.reduce((sum, item) => sum + parseFloat(item[`region${index + 1}`] || 0), 0)
+              const avgEffect = (totalEffect / policyData.length).toFixed(2)
               povertyReduction = `${avgEffect}%`
             }
             
@@ -412,8 +423,6 @@ export default {
       if (value.length > 2) {
         // 只保留前两个选择
         selectedRegions.value = value.slice(0, 2);
-      } else {
-        selectedRegions.value = value;
       }
       // 更新选中的地区
       loadChartData()

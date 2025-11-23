@@ -9,7 +9,7 @@ import { onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 
 export default {
-  name: 'GDPTrendChart',
+  name: 'PolicyEffectChart',
   props: {
     data: {
       type: Array,
@@ -30,7 +30,7 @@ export default {
         
         const option = {
           title: {
-            text: 'GDP增长趋势对比'
+            text: '政策效果对比'
           },
           tooltip: {
             trigger: 'axis'
@@ -44,14 +44,14 @@ export default {
           },
           yAxis: {
             type: 'value',
-            name: 'GDP增长'
+            name: '效果指数'
           },
           series: props.regions.map((region, index) => {
             const regionKey = `region${index + 1}`;
             const regionName = typeof region === 'object' ? (region.name || region.id) : region;
             return {
               name: regionName,
-              type: 'line',
+              type: 'bar',
               data: props.data.map(item => {
                 // 确保数据是数值类型
                 const value = item[regionKey];

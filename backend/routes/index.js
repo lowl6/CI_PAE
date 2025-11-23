@@ -5,9 +5,8 @@ const analysisController = require('../controllers/analysisController')
 const nlpController = require('../controllers/nlpController')
 const authController = require('../controllers/authController')
 const authMiddleware = require('../middleware/auth')
-
-// 导入政策路由
 const policyRoutes = require('./policy')
+const compareController = require('../controllers/compareController')
 
 // 认证相关路由（公开访问）
 router.post('/auth/login', authController.login)
@@ -25,6 +24,7 @@ router.use('/policies', policyRoutes)
 // 分析相关API（公开访问,因为前端没有传token）
 router.get('/analysis/cities', analysisController.getCities);
 router.get('/analysis/counties', analysisController.getCounties);
+router.get('/analysis/all-counties', analysisController.getAllCounties);
 router.get('/analysis/indicators/tree', analysisController.getIndicatorsTree);
 router.get('/analysis/policy-types', analysisController.getPolicyTypes);
 router.post('/analysis/data', analysisController.getAnalysisData);
@@ -34,5 +34,6 @@ router.get('/analysis/export/csv', analysisController.exportCsv);
 router.get('/meta/cities', analysisController.getCities);
 router.get('/meta/counties', analysisController.getCounties);
 router.get('/meta/policy-types', analysisController.getPolicyTypes);
+router.get('/compare/data', compareController.getComparisonData)
 
 module.exports = router
