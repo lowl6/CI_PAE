@@ -48,7 +48,10 @@ export default {
     getPolicyTypes(){ return instance.get('/analysis/policy-types') },
     getCities(){ return instance.get('/analysis/cities') },
     getCounties(params){ return instance.get('/analysis/counties', { params }) },
-    getAllCounties(){ return instance.get('/analysis/all-counties') }
+    getAllCounties(){ return instance.get('/analysis/all-counties') },
+    getDynamicPolicyTypes(params) { 
+      return instance.get('/analysis/dynamic-policy-types', { params }) 
+    }
   },
   nlp: {
     query(payload){ return instance.post('/nlp/query', payload) }

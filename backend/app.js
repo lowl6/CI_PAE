@@ -11,7 +11,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const nlpRoutes = require('./routes/nlpRoutes');
+const compareRoutes = require('./routes/compare');
+const analysisRoutes = require('./routes/analysis'); 
 app.use('/', nlpRoutes);
+app.use('/compare', compareRoutes);
+app.use('/analysis', analysisRoutes);
 // 中间件
 app.use(cors())
 app.use(bodyParser.json())

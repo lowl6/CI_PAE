@@ -1,24 +1,20 @@
-// routes/analysisRoutes.js
-const express = require('express');
-const router = express.Router();
-const analysisController = require('../controllers/analysisController');
+const express = require('express')
+const router = express.Router()
+const analysisController = require('../controllers/analysisController')
+const authMiddleware = require('../middleware/auth') // <--- ！！就是这一行，请确保它存在！！
 
-// 获取内蒙古的城市列表
+// 当 app.js 将 /analysis 请求转到这里时，
+// 这些路由将匹配路径的剩余部分，例如 /all-counties
+
+// 分析相关API
+router.post('/report', authMiddleware, analysisController.generateReport) // <--- 这一行需要 authMiddleware
 router.get('/cities', analysisController.getCities);
-
-// 获取县区列表
 router.get('/counties', analysisController.getCounties);
-
-// 获取指标树
+router.get('/all-counties', analysisController.getAllCounties);
 router.get('/indicators/tree', analysisController.getIndicatorsTree);
-
-// 获取政策类型
 router.get('/policy-types', analysisController.getPolicyTypes);
-
-// 获取分析数据
 router.post('/data', analysisController.getAnalysisData);
-
-// 导出CSV
 router.get('/export/csv', analysisController.exportCsv);
+router.get('/dynamic-policy-types', analysisController.getDynamicPolicyTypes);
 
-module.exports = router;
+module.exports = router

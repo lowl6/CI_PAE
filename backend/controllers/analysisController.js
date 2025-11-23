@@ -373,3 +373,36 @@ exports.generateReport = async (req, res) => {
     res.status(500).json({ ok: false, error: '生成报告失败' });
   }
 };
+
+exports.getDynamicPolicyTypes = async (req, res) => {
+  try {
+    const { regions } = req.query;
+    // 确保 regions 总是一个数组
+    const regionIds = regions ? (Array.isArray(regions) ? regions : [regions]) : [];
+
+    if (regionIds.length === 0) {
+      // 如果没有提供县区ID，返回一个空列表
+      return res.json([]);
+    }
+
+    // 查询所有与这些县区ID相关联的、不重复的政策类型
+    const sql = `
+      SELECT DISTINCT p.policy_type
+      FROM policies p
+      JOIN rel_policy_county rpc ON p.policy_id = rpc.policy_id
+      WHERE rpc.county_id IN (?)
+      AND p.policy_type IS NOT NULL
+      AND p.policy_type != ''
+      ORDER BY p.policy_type
+    `;
+    
+    // [regionIds] 会被 'mysql2' 库正确地格式化为 (id1, id2, ...)
+    const [types] = await pool.query(sql, [regionIds]);
+    
+    res.json(types.map(item => item.policy_type));
+
+  } catch (error) {
+    console.error('获取动态政策类型失败:', error);
+    res.status(500).json({ ok: false, error: '获取政策类型失败' });
+  }
+};

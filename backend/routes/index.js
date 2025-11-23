@@ -6,7 +6,7 @@ const nlpController = require('../controllers/nlpController')
 const authController = require('../controllers/authController')
 const authMiddleware = require('../middleware/auth')
 const policyRoutes = require('./policy')
-const compareController = require('../controllers/compareController')
+// const compareController = require('../controllers/compareController') // <--- 1. 这行可以删了
 // 导入仪表盘路由
 const dashboardRoutes = require('./dashboard')
 
@@ -38,6 +38,6 @@ router.get('/analysis/export/csv', analysisController.exportCsv);
 router.get('/meta/cities', analysisController.getCities);
 router.get('/meta/counties', analysisController.getCounties);
 router.get('/meta/policy-types', analysisController.getPolicyTypes);
-router.get('/compare/data', compareController.getComparisonData)
+// router.get('/compare/data', compareController.getComparisonData) // <--- 2. 删除这一行
 
 module.exports = router

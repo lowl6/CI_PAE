@@ -34,7 +34,20 @@
         <!-- 政策类型筛选 -->
         <a-col :span="8">
           <a-form-item label="政策类型">
-            <a-select mode="multiple" v-model:value="selectedPolicyTypes" placeholder="请选择政策类型" @change="onPolicyTypeChange">
+            <!-- 
+              修改：
+              1. 添加 :loading="policyTypesLoading"
+              2. 添加 :disabled="policyTypesLoading || selectedRegions.length === 0"
+              3. placeholder 根据状态变化
+            -->
+            <a-select 
+              mode="multiple" 
+              v-model:value="selectedPolicyTypes" 
+              :placeholder="getPolicyPlaceholder()"
+              @change="onPolicyTypeChange"
+              :loading="policyTypesLoading"
+              :disabled="policyTypesLoading || selectedRegions.length === 0"
+            >
               <a-select-option v-for="type in policyTypes" :key="type.policy_type" :value="type.policy_type">
                 {{ type.type_name }}
               </a-select-option>
@@ -55,20 +68,26 @@
           <a-statistic title="政策类型数" :value="selectedPolicyTypes.length" />
         </a-col>
         <a-col :span="6">
-          <a-statistic title="数据点数" :value="gdpData.length" />
+          <a-statistic title="数据点数" :value="policyEffectData.length" />
         </a-col>
       </a-row>
     </a-card>
     
-    <!-- 对比结果显示 -->
     <div class="results">
       <a-card title="对比分析结果" size="small">
         <!-- 图表区域 -->
-        <a-tabs default-active-key="1">
-          <a-tab-pane key="1" tab="经济指标对比">
-            <gdp-trend-chart :data="gdpData" :regions="selectedRegions.map(id => regions.find(r => r.id === id) || { id, name: id })" />
-          </a-tab-pane>
+        <a-tabs default-active-key="2">
           <a-tab-pane key="2" tab="政策效果对比">
+            <!-- 
+              ⬇⬇ ⬇⬇ ⬇⬇ 
+              新增：添加一个动态副标题来显示所选政策
+              ⬇⬇ ⬇⬇ ⬇⬇ 
+            -->
+            <h5 style="text-align: center; color: #666; font-weight: normal; margin-top: -8px; margin-bottom: 12px;">
+              {{ chartSubtitle }}
+            </h5>
+            <!-- ⬆⬆ ⬆⬆ ⬆⬆ 结束新增 ⬆⬆ ⬆⬆ ⬆⬆ -->
+
             <policy-effect-chart :data="policyEffectData" :regions="selectedRegions.map(id => regions.find(r => r.id === id) || { id, name: id })" />
           </a-tab-pane>
         </a-tabs>
@@ -96,21 +115,20 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue' // <--- 1. 导入 computed
 import api from '@/api'
-import GDPTrendChart from '@/components/Charts/GDPTrendChart.vue'
 import PolicyEffectChart from '@/components/Charts/PolicyEffectChart.vue'
 
 export default {
   name: 'Compare',
   components: {
-    GDPTrendChart,
     PolicyEffectChart
   },
   setup() {
     // 数据源
     const regions = ref([])
     const policyTypes = ref([])
+    const policyTypesLoading = ref(false) // <--- 新增：政策类型加载状态
     const selectedRegions = ref([])
     const dateRange = ref([])
     const selectedPolicyTypes = ref([])
@@ -121,15 +139,37 @@ export default {
     const comparisonTableData = ref([])
     const tableColumns = ref([])
     const tableLoading = ref(false)
+
+    // <--- 2. 新增：创建 chartSubtitle 计算属性
+    const chartSubtitle = computed(() => {
+      if (selectedPolicyTypes.value.length === 0) {
+        return '(全部政策类型)';
+      }
+      return `(${selectedPolicyTypes.value.join(', ')})`;
+    });
     
     // 获取时间范围文本
     const getDateRangeText = () => {
       if (!dateRange.value || dateRange.value.length === 0) {
-        return '2015-2020';
+        return '未选择';
       }
-      const start = dateRange.value[0] ? dateRange.value[0].format('YYYY') : '2015';
-      const end = dateRange.value[1] ? dateRange.value[1].format('YYYY') : '2020';
+      const start = dateRange.value[0] ? dateRange.value[0].format('YYYY') : 'N/A';
+      const end = dateRange.value[1] ? dateRange.value[1].format('YYYY') : 'N/A';
       return `${start}-${end}`;
+    };
+    
+    // <--- 新增：动态设置政策下拉框的占位符
+    const getPolicyPlaceholder = () => {
+      if (policyTypesLoading.value) {
+        return '正在加载政策类型...';
+      }
+      if (selectedRegions.value.length === 0) {
+        return '请先选择县区';
+      }
+      if (policyTypes.value.length === 0) {
+        return '无相关政策类型';
+      }
+      return '请选择政策类型 (可选)';
     };
     
     // 根据增长率设置颜色
@@ -145,110 +185,77 @@ export default {
       if (reduction === 'N/A') return '#999';
       const value = parseFloat(reduction);
       if (isNaN(value)) return '#999';
-      return value > 20 ? '#52c41a' : value > 10 ? '#1890ff' : '#ff4d4f';
+      return value > 0 ? '#52c41a' : value < 0 ? '#ff4d4f' : '#1890ff';
     };
     
-    // 加载数据
+    // 加载页面初始化数据（仅县区）
     const loadData = async () => {
       try {
         // 加载县区数据
-        try {
-          // 尝试从API获取县区数据
-          const countiesResp = await api.analysis.getAllCounties();
-          console.log('API返回的县区数据:', countiesResp);
-          
-          // 检查响应数据结构并正确处理
-          if (countiesResp && countiesResp.data) {
-            // 如果是完整的 axios 响应对象
-            if (Array.isArray(countiesResp.data)) {
-              regions.value = countiesResp.data.map(county => ({
-                id: county.county_id,
-                name: county.county_name
-              }));
-            }
-          } else if (countiesResp && Array.isArray(countiesResp)) {
-            // 如果是直接返回的数组
-            regions.value = countiesResp.map(county => ({
-              id: county.county_id,
-              name: county.county_name
-            }));
-          } else {
-            // 使用模拟数据作为后备
-            regions.value = [
-              { id: 'NMG000001', name: '兴和县' },
-              { id: 'NMG000002', name: '化德县' },
-              { id: 'NMG000003', name: '卓资县' },
-              { id: 'NMG000004', name: '商都县' },
-              { id: 'NMG000005', name: '四子王旗' },
-              { id: 'NMG000006', name: '察哈尔右翼中旗' },
-              { id: 'NMG000007', name: '察哈尔右翼前旗' },
-              { id: 'NMG000008', name: '察哈尔右翼后旗' },
-              { id: 'NMG000009', name: '扎赉特旗' },
-              { id: 'NMG000010', name: '科尔沁右翼中旗' }
-            ];
-          }
-        } catch (error) {
-          console.warn('加载县区数据失败:', error);
-          // 使用模拟数据
-          regions.value = [
-            { id: 'NMG000001', name: '兴和县' },
-            { id: 'NMG000002', name: '化德县' },
-            { id: 'NMG000003', name: '卓资县' },
-            { id: 'NMG000004', name: '商都县' },
-            { id: 'NMG000005', name: '四子王旗' },
-            { id: 'NMG000006', name: '察哈尔右翼中旗' },
-            { id: 'NMG000007', name: '察哈尔右翼前旗' },
-            { id: 'NMG000008', name: '察哈尔右翼后旗' },
-            { id: 'NMG000009', name: '扎赉特旗' },
-            { id: 'NMG000010', name: '科尔沁右翼中旗' }
-          ];
-        }
+        const countiesResp = await api.analysis.getAllCounties();
+        console.log('API返回的县区数据:', countiesResp);
         
-        // 加载政策类型数据
-        try {
-          const policyTypesResp = await api.analysis.getPolicyTypes();
-          if (policyTypesResp.data && Array.isArray(policyTypesResp.data)) {
-            policyTypes.value = policyTypesResp.data.map(type => ({
-              policy_type: type,
-              type_name: type
-            }));
-          } else {
-            // 使用模拟数据当API返回格式不正确时
-            policyTypes.value = [
-              { policy_type: '产业发展', type_name: '产业发展' },
-              { policy_type: '人口与户籍', type_name: '人口与户籍' },
-              { policy_type: '农业产业扶持', type_name: '农业产业扶持' },
-              { policy_type: '医疗保障', type_name: '医疗保障' }
-            ];
-          }
-        } catch (error) {
-          console.warn('加载政策类型数据失败:', error);
-          // 使用模拟数据
-          policyTypes.value = [
-            { policy_type: '产业发展', type_name: '产业发展' },
-            { policy_type: '人口与户籍', type_name: '人口与户籍' },
-            { policy_type: '农业产业扶持', type_name: '农业产业扶持' },
-            { policy_type: '医疗保障', type_name: '医疗保障' }
-          ];
+        const countiesData = countiesResp.data || countiesResp;
+        if (countiesData && Array.isArray(countiesData)) {
+          regions.value = countiesData.map(county => ({
+            id: county.county_id,
+            name: county.county_name
+          }));
+        } else {
+          console.error('县区数据格式不正确:', countiesData);
+          regions.value = [];
         }
-        
-        // 加载图表数据
-        await loadChartData()
       } catch (error) {
-        console.error('加载对比数据失败:', error)
+        console.error('加载县区数据失败:', error);
+        regions.value = [];
       }
+      
+      // ❗️ 修改：不再此处加载政策类型
+      policyTypes.value = [];
     }
     
-    // 加载图表数据
+    // <--- 新增：动态加载政策类型的函数
+    const loadDynamicPolicyTypes = async (regionIds) => {
+      if (regionIds.length === 0) {
+        policyTypes.value = []; // 清空
+        return;
+      }
+      
+      policyTypesLoading.value = true;
+      try {
+        const params = { regions: regionIds };
+        // 调用我们新创建的API
+        const policyTypesResp = await api.analysis.getDynamicPolicyTypes(params);
+        
+        const typesData = policyTypesResp.data || policyTypesResp;
+        if (typesData && Array.isArray(typesData)) {
+          policyTypes.value = typesData.map(type => ({
+            policy_type: type,
+            type_name: type
+          }));
+        } else {
+          console.error('动态政策类型数据格式不正确:', typesData);
+          policyTypes.value = [];
+        }
+      } catch (error) {
+        console.error('加载动态政策类型失败:', error);
+        policyTypes.value = [];
+      } finally {
+        policyTypesLoading.value = false;
+      }
+    }
+
+    // 加载图表和表格数据
     const loadChartData = async () => {
       tableLoading.value = true
       try {
-        // 如果没有选择地区，不加载数据
+        // 如果没有选择地区，不加载数据并清空
         if (selectedRegions.value.length === 0) {
           gdpData.value = []
           policyEffectData.value = []
           comparisonTableData.value = []
           tableColumns.value = []
+          tableLoading.value = false
           return
         }
         
@@ -256,23 +263,22 @@ export default {
         const params = {
           regions: selectedRegions.value,
           startDate: dateRange.value && dateRange.value[0] ? dateRange.value[0].format('YYYY-MM-DD') : '2015-01-01',
-          endDate: dateRange.value && dateRange.value[1] ? dateRange.value[1].format('YYYY-MM-DD') : '2020-12-31',
+          endDate: dateRange.value && dateRange.value[1] ? dateRange.value[1].format('YYYY-MM-DD') : '2023-12-31',
           policyTypes: selectedPolicyTypes.value
         };
         
         console.log('请求参数:', params);
         
-        const response = await api.compare.getComparisonData(params);
+        // ❗️ 修复：确保 API 名称与 api/index.js 中定义的一致
+        const response = await api.compare.getComparisonData(params); 
         console.log('API返回数据:', response);
         
-        // 处理响应数据，适应不同的响应结构
+        // 处理响应数据
         const responseData = response.data || response;
-        if (responseData && (responseData.ok || responseData.success)) {
-          // 处理GDP趋势数据
-          gdpData.value = (responseData.data && responseData.data.gdpTrend) || responseData.gdpTrend || [];
-          
-          // 处理政策效果数据
-          policyEffectData.value = (responseData.data && responseData.data.policyEffect) || responseData.policyEffect || [];
+        if (responseData && responseData.ok) {
+          const data = responseData.data || {};
+          gdpData.value = data.gdpTrend || [];
+          policyEffectData.value = data.policyEffect || [];
           
           // 表格数据 - 使用真实数据计算
           const tableData = []
@@ -280,28 +286,29 @@ export default {
             const region = regions.value.find(r => r.id === regionId)
             const regionName = region ? region.name : regionId
             
-            // 计算GDP增长率和贫困减少率（基于API返回的数据）
             let gdpGrowth = 'N/A'
             let povertyReduction = 'N/A'
             
-            // 从GDP趋势数据中计算增长率
-            const gdpTrendData = (responseData.data && responseData.data.gdpTrend) || responseData.gdpTrend || [];
+            const gdpTrendData = data.gdpTrend || [];
             if (gdpTrendData && gdpTrendData.length > 1) {
               const firstYearGDP = parseFloat(gdpTrendData[0][`region${index + 1}`])
               const lastYearGDP = parseFloat(gdpTrendData[gdpTrendData.length - 1][`region${index + 1}`])
               
-              if (!isNaN(firstYearGDP) && !isNaN(lastYearGDP) && firstYearGDP > 0) {
-                const growthRate = ((lastYearGDP - firstYearGDP) / firstYearGDP * 100).toFixed(2)
+              if (!isNaN(firstYearGDP) && !isNaN(lastYearGDP) && firstYearGDP !== 0) {
+                const growthRate = ((lastYearGDP - firstYearGDP) / Math.abs(firstYearGDP) * 100).toFixed(2)
                 gdpGrowth = `${growthRate}%`
               }
             }
             
-            // 从政策效果数据中计算平均效果指数
-            const policyEffectData = (responseData.data && responseData.data.policyEffect) || responseData.policyEffect || [];
+            const policyEffectData = data.policyEffect || [];
             if (policyEffectData && policyEffectData.length > 0) {
-              const totalEffect = policyEffectData.reduce((sum, item) => sum + parseFloat(item[`region${index + 1}`] || 0), 0)
-              const avgEffect = (totalEffect / policyEffectData.length).toFixed(2)
-              povertyReduction = `${avgEffect}%`
+              const regionEffects = policyEffectData.map(item => parseFloat(item[`region${index + 1}`] || 0)).filter(v => !isNaN(v));
+              
+              if (regionEffects.length > 0) {
+                 const totalEffect = regionEffects.reduce((sum, item) => sum + item, 0)
+                 const avgEffect = (totalEffect / regionEffects.length).toFixed(2)
+                 povertyReduction = `${avgEffect}`
+              }
             }
             
             tableData.push({
@@ -314,119 +321,69 @@ export default {
           
           comparisonTableData.value = tableData
           
-          tableColumns.value = [
-            { title: '地区', dataIndex: 'region', key: 'region' },
-            { title: 'GDP增长率', dataIndex: 'gdpGrowth', key: 'gdpGrowth' },
-            { title: '贫困人口减少', dataIndex: 'povertyReduction', key: 'povertyReduction' }
-          ]
+          if (tableData.length > 0) {
+            tableColumns.value = [
+              { title: '地区', dataIndex: 'region', key: 'region', fixed: 'left', width: 150 },
+              { title: 'GDP增长率 (首尾年)', dataIndex: 'gdpGrowth', key: 'gdpGrowth' },
+              { title: '政策效果指数 (平均)', dataIndex: 'povertyReduction', key: 'povertyReduction' }
+            ]
+          } else {
+             tableColumns.value = [];
+          }
         } else {
-          // 如果API调用失败，使用模拟数据
-          console.warn('API调用失败，使用模拟数据');
-          const years = [2015, 2016, 2017, 2018, 2019, 2020]
-          const gdpDataArray = []
-          const policyDataArray = []
-          
-          years.forEach(year => {
-            const gdpItem = { year }
-            const policyItem = { year }
-            
-            selectedRegions.value.forEach((regionId, index) => {
-              // 查找地区名称
-              const region = regions.value.find(r => r.id === regionId)
-              const regionName = region ? region.name : regionId
-              
-              // 生成模拟数据
-              gdpItem[`region${index + 1}`] = Math.floor(Math.random() * 100) + 50
-              policyItem[`region${index + 1}`] = Math.floor(Math.random() * 80) + 20
-            })
-            
-            gdpDataArray.push(gdpItem)
-            policyDataArray.push(policyItem)
-          })
-          
-          gdpData.value = gdpDataArray
-          policyEffectData.value = policyDataArray
-          
-          // 表格数据
-          const tableData = []
-          selectedRegions.value.forEach((regionId, index) => {
-            const region = regions.value.find(r => r.id === regionId)
-            const regionName = region ? region.name : regionId
-            
-            tableData.push({
-              key: index.toString(),
-              region: regionName,
-              gdpGrowth: `${Math.floor(Math.random() * 20) + 5}%`,
-              povertyReduction: `${Math.floor(Math.random() * 30) + 10}%`
-            })
-          })
-          
-          comparisonTableData.value = tableData
+          console.warn('API调用失败或未返回ok:true，清空图表和表格');
+          gdpData.value = [];
+          policyEffectData.value = [];
+          comparisonTableData.value = [];
+          tableColumns.value = [];
         }
       } catch (error) {
-        console.error('加载图表数据失败:', error)
-        // 出错时使用模拟数据
-        const years = [2015, 2016, 2017, 2018, 2019, 2020]
-        const gdpDataArray = []
-        const policyDataArray = []
-        
-        years.forEach(year => {
-          const gdpItem = { year }
-          const policyItem = { year }
-          
-          selectedRegions.value.forEach((regionId, index) => {
-            gdpItem[`region${index + 1}`] = Math.floor(Math.random() * 100) + 50
-            policyItem[`region${index + 1}`] = Math.floor(Math.random() * 80) + 20
-          })
-          
-          gdpDataArray.push(gdpItem)
-          policyDataArray.push(policyItem)
-        })
-        
-        gdpData.value = gdpDataArray
-        policyEffectData.value = policyDataArray
-        
-        // 表格数据
-        const tableData = []
-        selectedRegions.value.forEach((regionId, index) => {
-          const region = regions.value.find(r => r.id === regionId)
-          const regionName = region ? region.name : regionId
-          
-          tableData.push({
-            key: index.toString(),
-            region: regionName,
-            gdpGrowth: `${Math.floor(Math.random() * 20) + 5}%`,
-            povertyReduction: `${Math.floor(Math.random() * 30) + 10}%`
-          })
-        })
-        
-        comparisonTableData.value = tableData
+        console.error('加载图表数据失败:', error);
+        gdpData.value = [];
+        policyEffectData.value = [];
+        comparisonTableData.value = [];
+        tableColumns.value = [];
       } finally {
         tableLoading.value = false
       }
     }
     
     // 筛选器变更事件
-    const onRegionChange = (value) => {
+    // ❗️ 修改：onRegionChange 变为 async
+    const onRegionChange = async (value) => {
       // 限制只能选择两个地区进行对比
       if (value.length > 2) {
-        // 只保留前两个选择
         selectedRegions.value = value.slice(0, 2);
       } else {
         selectedRegions.value = value;
       }
-      // 更新选中的地区
-      loadChartData()
+      
+      // ❗️ 新增：清空已选的政策类型并动态加载新的
+      selectedPolicyTypes.value = [];
+      await loadDynamicPolicyTypes(selectedRegions.value);
+      
+      // 只有在选择了两个地区时才加载数据
+      if (selectedRegions.value.length === 2) {
+        loadChartData() // 这将使用新清空的 policyTypes (即 "全部") 来加载图表
+      } else {
+        // 如果选择少于2个，清空图表
+        gdpData.value = [];
+        policyEffectData.value = [];
+        comparisonTableData.value = [];
+        tableColumns.value = [];
+      }
     }
     
     const onDateChange = (dates) => {
-      // 更新时间范围
-      loadChartData()
+      if (selectedRegions.value.length === 2) {
+        loadChartData()
+      }
     }
     
     const onPolicyTypeChange = (value) => {
-      // 更新政策类型
-      loadChartData()
+      if (selectedRegions.value.length === 2) {
+        loadChartData()
+      }
     }
     
     onMounted(() => {
@@ -436,6 +393,7 @@ export default {
     return {
       regions,
       policyTypes,
+      policyTypesLoading, // <--- 新增
       selectedRegions,
       dateRange,
       selectedPolicyTypes,
@@ -448,8 +406,10 @@ export default {
       onDateChange,
       onPolicyTypeChange,
       getDateRangeText,
+      getPolicyPlaceholder, 
       getGrowthColor,
-      getPovertyReductionColor
+      getPovertyReductionColor,
+      chartSubtitle // <--- 3. 导出 chartSubtitle
     }
   }
 }
@@ -462,17 +422,5 @@ export default {
 
 .filter-panel {
   margin-bottom: 20px;
-}
-
-.charts-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.chart-item {
-  flex: 1;
-  min-width: 300px;
 }
 </style>
