@@ -38,6 +38,20 @@ exports.getCounties = async (req, res) => {
   }
 };
 
+// 获取所有县区（用于对比分析页面）
+exports.getAllCounties = async (req, res) => {
+  try {
+    const [counties] = await pool.query(
+      'SELECT county_id, county_name FROM counties WHERE province = ? ORDER BY city, county_name',
+      ['内蒙古自治区']
+    );
+    res.json(counties);
+  } catch (error) {
+    console.error('获取所有县区失败:', error);
+    res.status(500).json({ ok: false, error: '获取所有县区数据失败' });
+  }
+};
+
 // 获取政策类型
 exports.getPolicyTypes = async (req, res) => {
   try {

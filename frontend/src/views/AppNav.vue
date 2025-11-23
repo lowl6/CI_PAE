@@ -1,25 +1,27 @@
 <template>
   <nav class="app-nav">
-    <!-- 左侧：logo 保留 -->
-    <div class="nav-left">
-      <img src="/icons/logo.png" alt="Logo" class="logo-icon" @error="$event.target.src='https://via.placeholder.com/40'">
-      <span class="system-name">攻坚印记</span>
-    </div>
+    <div class="nav-container">
+      <!-- 左侧：logo 保留 -->
+      <div class="nav-left">
+        <img src="/icons/logo.png" alt="Logo" class="logo-icon" @error="$event.target.src='https://via.placeholder.com/40'">
+        <span class="system-name">攻坚印记</span>
+      </div>
 
-    <!-- 中间：页面导航 -->
-    <ul class="nav-center">
-      <li v-for="item in menuList" :key="item.path">
-        <router-link :to="item.path" active-class="active">
-          {{ item.title }}
-        </router-link>
-      </li>
-    </ul>
+      <!-- 中间：页面导航 -->
+      <ul class="nav-center">
+        <li v-for="item in menuList" :key="item.path">
+          <router-link :to="item.path" active-class="active">
+            {{ item.title }}
+          </router-link>
+        </li>
+      </ul>
 
-    <!-- 右侧：用户信息 / 登出 -->
-    <div class="nav-right">
-      <img :src="avatar" alt="avatar" class="user-avatar">
-      <span class="user-name">{{ username }}</span>
-      <button class="logout-btn" @click="$emit('logout')">登出</button>
+      <!-- 右侧：用户信息 / 登出 -->
+      <div class="nav-right">
+        <img :src="avatar" alt="avatar" class="user-avatar">
+        <span class="user-name">{{ username }}</span>
+        <button class="logout-btn" @click="$emit('logout')">登出</button>
+      </div>
     </div>
   </nav>
 </template>
@@ -45,13 +47,20 @@ const menuList = [
 <style scoped>
 .app-nav{
   height: 60px;
-    background: #d7000f; 
+  background: #d7000f; 
   display: flex;
   align-items: center;
-  padding: 0 24px;
+  justify-content: center;
   position: sticky;
   top: 0;
   z-index: 999;
+}
+.nav-container{
+  max-width: 1400px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
 }
 .nav-left{
   display: flex;

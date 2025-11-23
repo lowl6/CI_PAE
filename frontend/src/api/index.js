@@ -44,7 +44,11 @@ export default {
     fetchSummary(params){ return instance.get('/data/summary', { params }) }
   },
   analysis: {
-    runReport(params){ return instance.post('/analysis/report', params) }
+    runReport(params){ return instance.post('/analysis/report', params) },
+    getPolicyTypes(){ return instance.get('/analysis/policy-types') },
+    getCities(){ return instance.get('/analysis/cities') },
+    getCounties(params){ return instance.get('/analysis/counties', { params }) },
+    getAllCounties(){ return instance.get('/analysis/all-counties') }
   },
   nlp: {
     query(payload){ return instance.post('/nlp/query', payload) }
@@ -53,5 +57,9 @@ export default {
     login(credentials){ return instance.post('/auth/login', credentials) },
     register(userData){ return instance.post('/auth/register', userData) },
     logout(){ return instance.post('/auth/logout') }
+  },
+  compare: {
+    // 新增对比分析API
+    getComparisonData(params) { return instance.get('/compare/data', { params }) }
   }
 }

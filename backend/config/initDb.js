@@ -205,6 +205,92 @@ async function importInitialData() {
 }
 
 /**
+ * 执行数据库迁移（migrations 目录中 *.sql）
+ */
+async function runMigrations() {
+    let connection;
+    try {
+        console.log('\n=== 第三步: 执行数据库迁移脚本 ===');
+        connection = await pool.getConnection();
+        await connection.query('USE ci_pae');
+
+        const migrationsDir = path.join(__dirname, '../database/migrations');
+        if (!fs.existsSync(migrationsDir)) {
+            console.log('无 migrations 目录，跳过');
+            return true;
+        }
+
+        const files = fs.readdirSync(migrationsDir)
+            .filter(f => f.endsWith('.sql'))
+            .sort(); // 按文件名顺序执行
+
+        if (files.length === 0) {
+            console.log('未找到任何迁移脚本 (*.sql)，跳过');
+            return true;
+        }
+
+        for (const file of files) {
+            const fullPath = path.join(migrationsDir, file);
+            console.log(`→ 执行迁移: ${file}`);
+            try {
+                const raw = fs.readFileSync(fullPath, 'utf8');
+                // 去除注释（保留换行便于后续分割）
+                const cleaned = raw
+                    .replace(/--[^\n]*$/gm, '') // 行尾注释
+                    .replace(/\/\*[^]*?\*\//g, '')
+                    .replace(/\r\n/g, '\n');
+                
+                // 按 ";\n" 分割（要求分号后有换行），避免拆散多行语句
+                const statements = cleaned
+                    .split(/;\s*\n/)
+                    .map(s => s.trim())
+                    .filter(s => s.length > 0 && !s.match(/^(USE |SET |DELIMITER)/i));
+                
+                for (const stmt of statements) {
+                    const execStmt = stmt.endsWith(';') ? stmt.slice(0, -1).trim() : stmt.trim();
+                    try {
+                        await connection.query(execStmt);
+                    } catch (e) {
+                        const msg = e.message || '';
+                        // 幂等处理：列/索引已存在视为成功
+                        if (msg.includes('Duplicate column') || msg.includes('Duplicate key name') || 
+                            msg.includes('already exists') || msg.includes('exists')) {
+                            console.log(`  ⏭ 跳过语句 (幂等): ${msg.split('\n')[0]}`);
+                        } else {
+                            console.warn(`  ⚠ 语句执行警告: ${msg.substring(0,160)}`);
+                            console.warn(`    ↳ 语句片段: ${execStmt.substring(0,100)}...`);
+                        }
+                    }
+                }
+                console.log(`  ✓ 迁移完成: ${file}`);
+            } catch (fileErr) {
+                console.error(`  ✗ 迁移失败: ${file} -> ${fileErr.message}`);
+            }
+        }
+        // 自愈：关键表缺失时尝试直接创建
+        const ensureTable = async (tableName, createSQL) => {
+            try {
+                const [chk] = await connection.query(`SHOW TABLES LIKE '${tableName}'`);
+                if (chk.length === 0) {
+                    console.log(`  ⚠ 检测到缺失表 ${tableName}，尝试补建...`);
+                    await connection.query(createSQL);
+                    console.log(`  ✓ 补建成功: ${tableName}`);
+                }
+            } catch (e) {
+                console.warn(`  ✗ 补建 ${tableName} 失败: ${e.message}`);
+            }
+        }; 
+        console.log('✓ 所有迁移脚本执行完毕');
+        return true;
+    } catch (err) {
+        console.error('✗ 执行迁移脚本失败:', err.message);
+        return false;
+    } finally {
+        if (connection) connection.release();
+    }
+}
+
+/**
  * 完整的数据库初始化流程
  */
 async function initDatabase() {
@@ -224,7 +310,12 @@ async function initDatabase() {
         const dataResult = await importInitialData();
         if (!dataResult) {
             console.warn('\n⚠ 数据导入部分失败，但表结构已就绪');
-            return true; // 即使数据导入失败，表结构也已创建
+        }
+
+        // 第三步：执行迁移脚本
+        const migrationsResult = await runMigrations();
+        if (!migrationsResult) {
+            console.warn('\n⚠ 迁移脚本存在错误，请检查日志');
         }
 
         console.log('\n╔════════════════════════════════════════════╗');
@@ -260,4 +351,4 @@ async function checkDatabaseInitialized() {
     }
 }
 
-module.exports = { initDatabase, checkDatabaseInitialized };
+module.exports = { initDatabase, checkDatabaseInitialized, runMigrations };
