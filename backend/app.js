@@ -10,7 +10,12 @@ const app = express()
 // CORS 配置 - 支持公网访问
 const corsOptions = {
   origin: function (origin, callback) {
-    // 允许的域名列表，生产环境应该配置具体的域名
+    // 开发环境允许所有origin
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true)
+    }
+
+    // 生产环境才需要限制具体域名
     const allowedOrigins = [
       'http://localhost:5174',
       'http://localhost:3000',
@@ -19,11 +24,6 @@ const corsOptions = {
       // 添加你的公网IP和端口
       // 例如: 'http://YOUR_PUBLIC_IP:5174', 'http://YOUR_DOMAIN.com'
     ]
-
-    // 开发环境允许所有origin
-    if (process.env.NODE_ENV !== 'production') {
-      return callback(null, true)
-    }
 
     // 生产环境检查origin
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
@@ -61,6 +61,9 @@ app.use(bodyParser.urlencoded({ extended: true }))
 
 // API 路由 - 所有路由都通过统一前缀访问
 app.use('/api', routes)
+
+// NLP 路由 - 直接暴露用于智能查询
+app.use('/query', require('./routes/nlpRoutes'))
 
 // 错误处理中间件
 app.use(errorHandler)

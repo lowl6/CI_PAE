@@ -15,10 +15,14 @@ router.post('/auth/login', authController.login)
 router.post('/auth/register', authController.register)
 router.post('/auth/logout', authController.logout)
 
+// NLP相关路由（公开访问）
+const nlpRoutes = require('./nlpRoutes')
+router.use('/query', nlpRoutes)
+
 // 需要认证的路由
 router.get('/data/summary', authMiddleware, dataController.getSummary)
 router.post('/analysis/report', authMiddleware, analysisController.generateReport)
-router.post('/nlp/query', authMiddleware, nlpController.query)
+// 注意：nlp/query 在路由中直接使用，不需要认证
 
 // 政策相关API（公开访问）
 router.use('/policies', policyRoutes)

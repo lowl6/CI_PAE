@@ -12,8 +12,14 @@ const getBaseURL = () => {
     // 局域网环境：使用局域网IP
     return `${import.meta.env.VITE_API_URL}/api`
   } else {
-    // 开发环境：使用localhost
-    return 'http://localhost:3001/api'
+    // 开发环境：检查当前访问地址
+    const currentHost = window.location.hostname;
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return 'http://localhost:3001/api'
+    } else {
+      // 如果是通过局域网IP访问的，使用相同的IP访问后端
+      return `http://${currentHost}:3001/api`
+    }
   }
 }
 
