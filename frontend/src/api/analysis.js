@@ -12,8 +12,8 @@ const getBaseURL = () => {
     // 局域网环境：使用局域网IP
     return `${import.meta.env.VITE_API_URL}/api`
   } else {
-    // 开发环境：使用localhost
-    return 'http://localhost:3001/api'
+    // 开发环境：使用代理，前端通过vite代理访问后端
+    return '/api'
   }
 }
 
