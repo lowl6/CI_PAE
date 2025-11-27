@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { OpenAI } = require('openai');
-const pool = require('../config/db'); // 导入真实数据库连接池
+const { getPool } = require('../config/db'); // 导入真实数据库连接池
 
 // 初始化客户端 (保持不变)
 const client = new OpenAI({
@@ -559,15 +559,16 @@ class LLMService {
     }
 
     // 执行 SQL (保持不变)
-    async executeQuery(sql) {
+    async executeQuery(sql, role) {
         try {
-            console.log("=== 正在执行SQL ===");
+            console.log(`=== 正在执行SQL (Role: ${role}) ===`);
+            const userPool = getPool(role);
             console.log("待执行SQL:", sql);
             if (!sql.trim().toLowerCase().startsWith('select')) {
                 console.error("SQL 安全检查失败: 非 SELECT 语句");
                 throw new Error("无效的查询操作。只允许执行 SELECT 语句。");
             }
-            const [rows] = await pool.query(sql);
+            const [rows] = await userPool.query(sql);
             console.log("数据库查询成功, 行数:", rows.length);
             return { data: rows };
         } catch (error) {
@@ -579,7 +580,7 @@ class LLMService {
     // =================================================================
     // 新的“三阶段”处理流程
     // =================================================================
-    async processQuery(userQuery) {
+    async processQuery(userQuery, role = 'user') {
         let plan = {};
         let sql = "";
         let dbResult = {};
@@ -605,7 +606,7 @@ class LLMService {
 
             // --- 阶段 3: 执行 SQL ---
             console.log("--- 阶段 3: 执行 SQL ---");
-            dbResult = await this.executeQuery(sql);
+            dbResult = await this.executeQuery(sql, role);
 
             // 检查 SQL 执行是否出错
             if (dbResult.error) {

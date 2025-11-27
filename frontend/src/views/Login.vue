@@ -84,6 +84,17 @@
               required
             />
           </div>
+
+          <div class="form-group">
+            <label for="regRole">选择角色</label>
+            <select id="regRole" v-model="registerForm.role" class="role-select">
+              <option value="user">普通用户</option>
+              <option value="researcher">调研员</option>
+              <option value="analyst">数据分析师</option>
+              <option value="policy_admin">政策管理员</option>
+              <option value="statistician">数据统计员</option>
+            </select>
+          </div>
           
           <button type="submit" class="register-button" :disabled="registerLoading">
             {{ registerLoading ? '注册中...' : '注册' }}
@@ -113,7 +124,8 @@ export default {
       registerForm: {
         username: '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        role: 'user'
       },
       loading: false,
       registerLoading: false,
@@ -161,7 +173,12 @@ export default {
         }
         
         // 6. 调用 account.js 的 register 函数，传入用户名和密码
-        const response = await register(this.registerForm.username, this.registerForm.password);
+        // 【修改】调用 register 时传入 role
+        const response = await register(
+          this.registerForm.username, 
+          this.registerForm.password,
+          this.registerForm.role
+        );
         
         // 7. 注册成功：存储 Token 和用户信息，提示并跳转
         if (response.ok && response.data?.token) {
@@ -376,4 +393,22 @@ export default {
   color: #721c24;
   border-color: #f5c6cb;
 }
+
+/* 【新增】下拉框样式，与 input 保持一致 */
+.role-select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+  background-color: white;
+  cursor: pointer;
+}
+
+.role-select:focus {
+  outline: none;
+  border-color: #27ae60; /* 注册框的主色调是绿色，这里可以匹配一下 */
+}
+
 </style>

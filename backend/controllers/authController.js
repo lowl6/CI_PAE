@@ -12,8 +12,8 @@ exports.login = async (req, res, next) => {
 
 exports.register = async (req, res, next) => {
   try {
-    const { username, password } = req.body
-    const result = await authService.register(username, password)
+    const { username, password, role } = req.body
+    const result = await authService.register(username, password, role)
     res.json({ ok: true, data: result })
   } catch (err) { 
     next(err) 

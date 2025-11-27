@@ -73,6 +73,11 @@ export default {
   nlp: {
     query(payload){ return instance.post('/nlp/query', payload) }
   },
+  sql: {
+    execute(sqlStatement) { 
+      return instance.post('/sql/execute', { sql: sqlStatement }) 
+    }
+  },
   auth: {
     login(credentials){ return instance.post('/auth/login', credentials) },
     register(userData){ return instance.post('/auth/register', userData) },

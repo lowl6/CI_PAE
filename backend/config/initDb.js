@@ -69,6 +69,141 @@ async function executeSqlFile(connection, sqlFilePath, tableName) {
 }
 
 /**
+ * 初始化数据库用户和权限
+ */
+async function initPrivileges(connection) {
+    console.log('\n=== 配置数据库用户权限 ===');
+    const dbName = 'ci_pae';
+    
+    // 定义用户及其对应的密码环境变量Key
+    const users = [
+        { name: 'researcher', pwd: process.env.DB_PWD_RESEARCHER },
+        { name: 'analyst', pwd: process.env.DB_PWD_ANALYST },
+        { name: 'policy_admin', pwd: process.env.DB_PWD_POLICY_ADMIN },
+        { name: 'statistician', pwd: process.env.DB_PWD_STATISTICIAN },
+        { name: 'user', pwd: process.env.DB_PWD_USER }
+    ];
+
+    for (const u of users) {
+        if (!u.pwd) {
+            console.warn(`  ⚠ 跳过创建用户 ${u.name}: 未在 .env 配置密码`);
+            continue;
+        }
+        // 重建用户 (先删除再创建，确保清除旧的残留权限)
+        try {
+            await connection.query(`DROP USER IF EXISTS '${u.name}'@'%';`);
+            await connection.query(`CREATE USER '${u.name}'@'%' IDENTIFIED BY '${u.pwd}';`);
+        } catch (err) {
+            console.error(`  ✗ 重建用户 ${u.name} 失败:`, err.message);
+        }
+    }
+
+    // 定义所有指标表名
+    const indicatorTables = [
+        'economic_indicators',
+        'population_indicators',
+        'agriculture_indicators',
+        'industry_trade_indicators',
+        'infrastructure_indicators',
+        'edu_culture_indicators',
+        'medical_social_indicators'
+    ];
+
+    const publicTables = [
+        'counties',
+        // 指标表
+        ...indicatorTables,
+        // 政策相关
+        'policies', 'policy_resources', 'rel_policy_county', 
+        'policy_keywords', 'policy_interview_cache',
+        // 访谈相关
+        'interviewees', 'interview_events', 'interview_data', 
+        'researchers', 'rel_interviewee_event', 'rel_data_researcher'
+    ];
+
+    // 生成基础读权限 SQL (所有角色都需要读取业务数据)
+    // 注意：必须逐表授权，不能使用 db.*，否则无法排除 users 表
+    const allRoles = ['researcher', 'analyst', 'policy_admin', 'statistician', 'user'];
+    const baseSelectGrants = [];
+    
+    for (const role of allRoles) {
+        for (const table of publicTables) {
+            // 使用 IGNORE 避免表不存在时报错(比如视图可能未创建)
+            // 但 GRANT 语句不支持 IGNORE，我们只能在执行时捕获错误，或者确保表存在
+            // 这里假设表都已存在
+            baseSelectGrants.push(`GRANT SELECT ON ${dbName}.${table} TO '${role}'@'%'`);
+        }
+    }
+
+    // 定义权限 SQL
+    const grants = [
+        // 0. 基础读权限 (替换原来的 GRANT SELECT ON *.*)
+        ...baseSelectGrants,
+
+        // 1. 调研员: 写访谈相关
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.interview_data TO 'researcher'@'%'`,
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.interview_events TO 'researcher'@'%'`,
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.interviewees TO 'researcher'@'%'`,
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.researchers TO 'researcher'@'%'`,
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.rel_interviewee_event TO 'researcher'@'%'`,
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.rel_data_researcher TO 'researcher'@'%'`,
+
+        // 2. 数据分析师: (已通过 baseSelectGrants 获得读权限)
+
+        // 3. 政策管理员: 写政策相关
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.policies TO 'policy_admin'@'%'`,
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.policy_resources TO 'policy_admin'@'%'`,
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.rel_policy_county TO 'policy_admin'@'%'`,
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.policy_keywords TO 'policy_admin'@'%'`, 
+        `GRANT INSERT, UPDATE, DELETE ON ${dbName}.policy_interview_cache TO 'policy_admin'@'%'`,
+
+        // 4. 数据统计员: 写指标相关
+        ...indicatorTables.map(tb => `GRANT INSERT, UPDATE, DELETE ON ${dbName}.${tb} TO 'statistician'@'%'`),
+
+        // 5. 普通用户: (已通过 baseSelectGrants 获得读权限)
+    ];
+
+    for (const sql of grants) {
+        try {
+            await connection.query(sql);
+        } catch (err) {
+            console.warn(`  ⚠ 授权失败: ${sql} -> ${err.message}`);
+        }
+    }
+    
+    await connection.query('FLUSH PRIVILEGES;');
+    console.log('  ✓ 用户权限配置完成');
+}
+
+/**
+ * 初始化应用内的默认管理员账号
+ */
+async function seedAdminUser(connection) {
+    console.log('\n=== 植入默认管理员账号 ===');
+    const adminUser = 'admin';
+    const adminPwd = process.env.ADMIN_INIT_PASSWORD || 'admin123';
+    
+    try {
+        // 检查是否存在
+        const [rows] = await connection.query(
+            `SELECT id FROM users WHERE username = ? AND role = ?`, 
+            [adminUser, 'admin']
+        );
+        if (rows.length === 0) {
+            await connection.query(
+                `INSERT INTO users (username, password, role) VALUES (?, ?, ?)`,
+                [adminUser, adminPwd, 'admin']
+            );
+            console.log(`  ✓ 创建应用管理员: ${adminUser} / ${adminPwd}`);
+        } else {
+            console.log(`  ⏭ 应用管理员已存在`);
+        }
+    } catch (err) {
+        console.error('  ✗ 植入管理员失败:', err.message);
+    }
+}
+
+/**
  * 初始化数据库表结构
  */
 async function initDatabaseSchema() {
@@ -296,7 +431,7 @@ async function runMigrations() {
 async function initDatabase() {
     try {
         console.log('\n╔════════════════════════════════════════════╗');
-        console.log('║      CI-PAE 数据库初始化工具 v2.0        ║');
+        console.log('║      CI-PAE 数据库初始化工具 v2.5        ║');
         console.log('╚════════════════════════════════════════════╝');
 
         // 第一步：初始化表结构
@@ -316,6 +451,17 @@ async function initDatabase() {
         const migrationsResult = await runMigrations();
         if (!migrationsResult) {
             console.warn('\n⚠ 迁移脚本存在错误，请检查日志');
+        }
+
+        // 【新增】初始化权限和默认账号
+        console.log('\n=== 第四步: 配置权限与账号 ===');
+        let connection = await pool.getConnection();
+        
+        try {
+            await initPrivileges(connection);
+            await seedAdminUser(connection);
+        } finally {
+            connection.release();
         }
 
         console.log('\n╔════════════════════════════════════════════╗');

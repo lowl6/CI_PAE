@@ -32,6 +32,13 @@ const routes = [
     name: 'IntelligentQuery',
     component: () => import('../views/QueryPage.vue'),
     meta: { requiresAuth: true }
+  },
+  // --- 新增 SQL 查询路由 ---
+  {
+    path: '/sql-query',
+    name: 'SqlQuery',
+    component: () => import('../views/SqlQuery.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

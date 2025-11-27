@@ -40,7 +40,8 @@ const menuList = [
   { path: '/analysis',   title: '深度分析' },
   { path: '/patterns',   title: '模式提炼' },
   { path: '/compare',    title: '区域对比' },
-  { path: '/intelligent-query', title: '智能查询' }
+  { path: '/intelligent-query', title: '智能查询' },
+  { path: '/sql-query',  title: 'SQL查询' }
 ]
 </script>
 

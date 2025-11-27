@@ -50,10 +50,12 @@ app.options('*', cors(corsOptions))
 const nlpRoutes = require('./routes/nlpRoutes')
 const compareRoutes = require('./routes/compare')
 const analysisRoutes = require('./routes/analysis')
+const sqlRoutes = require('./routes/sql') // 引入 SQL 路由
 
 app.use('/', nlpRoutes)
 app.use('/compare', compareRoutes)
 app.use('/analysis', analysisRoutes)
+app.use('/sql', sqlRoutes)
 
 // 中间件
 app.use(bodyParser.json())

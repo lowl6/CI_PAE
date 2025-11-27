@@ -9,6 +9,7 @@ const policyRoutes = require('./policy')
 // const compareController = require('../controllers/compareController') // <--- 1. 这行可以删了
 // 导入仪表盘路由
 const dashboardRoutes = require('./dashboard')
+const sqlRoutes = require('./sql')
 
 // 认证相关路由（公开访问）
 router.post('/auth/login', authController.login)
@@ -28,6 +29,9 @@ router.post('/analysis/report', authMiddleware, analysisController.generateRepor
 router.use('/policies', policyRoutes)
 // 仪表盘相关API（公开访问，因为前端没有传token）
 router.use('/dashboard', dashboardRoutes)
+
+// SQL查询窗口API（公开访问，内部鉴权）
+router.use('/sql', sqlRoutes)
 
 // 分析相关API（公开访问,因为前端没有传token）
 router.get('/analysis/cities', analysisController.getCities);

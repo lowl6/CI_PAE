@@ -49,8 +49,12 @@ exports.login = async (username, password) => {
     throw new Error('Failed to query user from database: ' + err.message);
   }
 }
-exports.register = async (username, password) => {
+exports.register = async (username, password, role) => {
   try {
+    // 验证角色合法性
+    const allowedRoles = ['researcher', 'analyst', 'policy_admin', 'statistician', 'user'];
+    const userRole = allowedRoles.includes(role) ? role : 'user'; // 默认为 user，不允许注册为 admin
+
     // 1. 先查询数据库，检查用户名是否已存在（避免重复注册）
     const [existingUsers] = await pool.query(
       'SELECT id FROM users WHERE username = ?',
@@ -65,7 +69,7 @@ exports.register = async (username, password) => {
     // 3. 若用户名不存在，向数据库插入新用户（默认角色为 user）
     const [result] = await pool.query(
       'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-      [username, password, 'user'] // 对应 SQL 中的三个 ? 占位符
+      [username, password, userRole] // 对应 SQL 中的三个 ? 占位符
     );
 
     // 4. 获取新插入用户的 ID（result.insertId 是 MySQL 插入后返回的自增 ID）
