@@ -75,9 +75,9 @@ export const login = async (username, password) => {
 };
 
 // 2. 后续可添加注册接口（待后端 register 函数修改为数据库存储后启用）
-export const register = async (username, password, role) => {
+export const register = async (username, password, role, secretKey = '') => {
     try {
-        const response = await api.post('/auth/register', { username, password, role});
+        const response = await api.post('/auth/register', { username, password, role, secretKey});
         return response.data;
     } catch (error) {
         throw error.response?.data || { ok: false, error: '注册请求失败' };

@@ -95,6 +95,17 @@
               <option value="statistician">数据统计员</option>
             </select>
           </div>
+
+          <div class="form-group" v-if="registerForm.role !== 'user'">
+            <label for="regSecret">身份授权码</label>
+            <input 
+              id="regSecret"
+              v-model="registerForm.secretKey" 
+              type="password" 
+              placeholder="请输入该身份的授权码"
+              class="secret-input"
+            />
+          </div>
           
           <button type="submit" class="register-button" :disabled="registerLoading">
             {{ registerLoading ? '注册中...' : '注册' }}
@@ -125,7 +136,8 @@ export default {
         username: '',
         password: '',
         confirmPassword: '',
-        role: 'user'
+        role: 'user',
+        secretKey: ''
       },
       loading: false,
       registerLoading: false,
@@ -171,13 +183,19 @@ export default {
         if (this.registerForm.password !== this.registerForm.confirmPassword) {
           throw new Error('两次输入的密码不一致');
         }
+
+        // 【新增】前端简单校验：选了特殊身份但没填码，直接拦截
+        if (this.registerForm.role !== 'user' && !this.registerForm.secretKey) {
+            throw new Error('注册该身份需要输入授权码');
+        }
         
         // 6. 调用 account.js 的 register 函数，传入用户名和密码
         // 【修改】调用 register 时传入 role
         const response = await register(
           this.registerForm.username, 
           this.registerForm.password,
-          this.registerForm.role
+          this.registerForm.role,
+          this.registerForm.secretKey
         );
         
         // 7. 注册成功：存储 Token 和用户信息，提示并跳转
@@ -409,6 +427,14 @@ export default {
 .role-select:focus {
   outline: none;
   border-color: #27ae60; /* 注册框的主色调是绿色，这里可以匹配一下 */
+}
+
+.secret-input {
+  border-color: #f39c12; /* 橙色边框提示这是特殊字段 */
+}
+
+.secret-input:focus {
+  border-color: #e67e22;
 }
 
 </style>

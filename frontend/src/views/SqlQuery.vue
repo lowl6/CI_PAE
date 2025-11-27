@@ -2,7 +2,7 @@
   <div class="sql-query-container">
     <div class="header-section">
       <h2>SQL查询工具</h2>
-      <p class="subtitle">请输入 SQL 查询语句</p>
+      <p class="subtitle">使用 SQL 语句进行查询</p>
     </div>
 
     <div class="input-section">
