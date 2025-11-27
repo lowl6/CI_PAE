@@ -84,6 +84,12 @@ exports.getComparisonData = async (req, res) => {
     console.log('Step 5: policyEffectSql 执行完毕');
     // --- 结束 ---
 
+    // 根据政策类型获取相关领域的指标数据
+    let relatedIndicators = [];
+    if (policyTypeIds && policyTypeIds.length > 0) {
+      relatedIndicators = await getRelatedIndicators(regionIds, startYear, endYear, policyTypeIds);
+    }
+
     // 构造返回数据
     const comparisonData = {
       gdpTrend: gdpTrendRows.map(row => {
@@ -101,6 +107,7 @@ exports.getComparisonData = async (req, res) => {
         });
         return result;
       }),
+      relatedIndicators: relatedIndicators, // 新增：政策相关指标数据
       tableData: [] // 可以根据需要添加表格数据
     };
     
@@ -117,3 +124,113 @@ exports.getComparisonData = async (req, res) => {
     res.status(500).json({ ok: false, error: '获取对比数据失败: ' + error.message });
   }
 };
+
+// 辅助函数：根据政策类型获取相关指标数据
+async function getRelatedIndicators(regionIds, startYear, endYear, policyTypes) {
+  // 政策类型到指标的映射关系
+  const policyIndicatorMap = {
+    '经济发展': [
+      { table: 'economic_indicators', field: 'gdp', name: 'GDP', unit: '亿元' },
+      { table: 'economic_indicators', field: 'public_budget_income', name: '财政收入', unit: '万元' },
+      { table: 'economic_indicators', field: 'disp_income_rural', name: '农村居民收入', unit: '元' }
+    ],
+    '农业扶贫': [
+      { table: 'agriculture_indicators', field: 'grain_yield', name: '粮食产量', unit: '吨' },
+      { table: 'agriculture_indicators', field: 'arable_land', name: '耕地面积', unit: '公顷' },
+      { table: 'agriculture_indicators', field: 'sown_area', name: '播种面积', unit: '公顷' }
+    ],
+    '社会保障与就业': [
+      { table: 'medical_social_indicators', field: 'medical_beds', name: '医疗床位', unit: '张' },
+      { table: 'medical_social_indicators', field: 'medical_insurance_users', name: '医保参保人数', unit: '人' },
+      { table: 'economic_indicators', field: 'disp_income_total', name: '居民人均收入', unit: '元' }
+    ],
+    '基础设施建设': [
+      { table: 'infrastructure_indicators', field: 'road_mileage', name: '公路里程', unit: '公里' },
+      { table: 'infrastructure_indicators', field: 'mobile_users', name: '移动电话用户', unit: '户' },
+      { table: 'infrastructure_indicators', field: 'broadband_users', name: '宽带用户', unit: '户' }
+    ],
+    '教育文化': [
+      { table: 'edu_culture_indicators', field: 'primary_schools', name: '小学数量', unit: '所' },
+      { table: 'edu_culture_indicators', field: 'middle_schools', name: '中学数量', unit: '所' },
+      { table: 'edu_culture_indicators', field: 'patents_granted', name: '专利授权', unit: '件' }
+    ],
+    '工业招商': [
+      { table: 'industry_trade_indicators', field: 'industrial_enterprises', name: '规上工业企业', unit: '个' },
+      { table: 'industry_trade_indicators', field: 'retail_sales', name: '零售总额', unit: '万元' },
+      { table: 'industry_trade_indicators', field: 'export_total_rmb', name: '出口总额', unit: '万元' }
+    ]
+  };
+
+  // 收集所有需要查询的指标
+  const allIndicators = [];
+  policyTypes.forEach(policyType => {
+    const indicators = policyIndicatorMap[policyType];
+    if (indicators) {
+      indicators.forEach(ind => {
+        // 避免重复添加
+        if (!allIndicators.find(i => i.table === ind.table && i.field === ind.field)) {
+          allIndicators.push(ind);
+        }
+      });
+    }
+  });
+
+  if (allIndicators.length === 0) {
+    return [];
+  }
+
+  // 按表分组查询
+  const result = [];
+  const tableGroups = {};
+  allIndicators.forEach(ind => {
+    if (!tableGroups[ind.table]) {
+      tableGroups[ind.table] = [];
+    }
+    tableGroups[ind.table].push(ind);
+  });
+
+  // 对每个表执行查询
+  for (const [table, indicators] of Object.entries(tableGroups)) {
+    const fields = indicators.map(ind => ind.field).join(', ');
+    const sql = `
+      SELECT 
+        year,
+        county_id,
+        ${fields}
+      FROM ${table}
+      WHERE county_id IN (${regionIds.map(() => '?').join(',')})
+      AND year BETWEEN ? AND ?
+      ORDER BY year, county_id
+    `;
+    
+    const [rows] = await pool.query(sql, [...regionIds, startYear, endYear]);
+    
+    // 为每个指标构造数据
+    indicators.forEach(indicator => {
+      const indicatorData = {
+        name: indicator.name,
+        unit: indicator.unit,
+        data: []
+      };
+      
+      // 按年份分组数据
+      const yearMap = {};
+      rows.forEach(row => {
+        const year = row.year;
+        if (!yearMap[year]) {
+          yearMap[year] = { year };
+        }
+        // 找到这是第几个region
+        const regionIndex = regionIds.indexOf(row.county_id);
+        if (regionIndex !== -1) {
+          yearMap[year][`region${regionIndex + 1}`] = row[indicator.field] || 0;
+        }
+      });
+      
+      indicatorData.data = Object.values(yearMap);
+      result.push(indicatorData);
+    });
+  }
+
+  return result;
+}

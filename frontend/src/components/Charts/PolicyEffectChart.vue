@@ -44,7 +44,9 @@ export default {
           },
           yAxis: {
             type: 'value',
-            name: '效果指数'
+            name: '政策效果指数 (0-100)',
+            min: 0,
+            max: 100
           },
           series: props.regions.map((region, index) => {
             const regionKey = `region${index + 1}`;
@@ -53,9 +55,20 @@ export default {
               name: regionName,
               type: 'bar',
               data: props.data.map(item => {
-                // 确保数据是数值类型
-                const value = item[regionKey];
-                return isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+                // 后端返回的是 strength (0-1 范围),需要转换为 0-100 指数
+                const strengthValue = item[regionKey];
+                const parsedStrength = parseFloat(strengthValue);
+                
+                if (isNaN(parsedStrength) || parsedStrength === 0) {
+                  return 0;
+                }
+                
+                // 将 0-1 的 strength 映射到 0-100 的政策效果指数
+                // 这里采用简化计算:直接乘以100
+                // (与 Compare.vue 表格中的 baseScore 计算一致)
+                const effectIndex = parsedStrength * 100;
+                
+                return parseFloat(effectIndex.toFixed(2));
               }),
               smooth: true
             };

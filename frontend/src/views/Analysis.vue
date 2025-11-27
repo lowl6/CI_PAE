@@ -92,18 +92,68 @@
             </a-col>
           </a-row>
 
-          <!-- 图表区 -->
-          <a-card size="small" class="chart-card">
-            <template #extra>
-              <a-radio-group v-model="chartType" size="small">
-                <a-radio-button value="line">折线</a-radio-button>
-                <a-radio-button value="bar">柱状</a-radio-button>
-                <a-radio-button value="radar">雷达</a-radio-button>
-              </a-radio-group>
-              <a-button size="small" @click="exportPic">导出图片</a-button>
-              <a-button size="small" @click="handleExportCsv">导出 CSV</a-button>
+          <!-- 图表区 - 多指标独立展示 -->
+          <div v-if="chartData.series && chartData.series.length > 0" class="charts-container">
+            <!-- 单指标使用大图 -->
+            <a-card v-if="chartData.series.length === 1" size="small" class="chart-card single-chart">
+              <template #title>
+                <span class="chart-title">
+                  <span class="indicator-icon">📊</span>
+                  {{ chartData.series[0].name }}
+                </span>
+              </template>
+              <template #extra>
+                <a-radio-group v-model:value="chartType" size="small">
+                  <a-radio-button value="line">折线</a-radio-button>
+                  <a-radio-button value="bar">柱状</a-radio-button>
+                  <a-radio-button value="area">面积</a-radio-button>
+                </a-radio-group>
+                <a-button size="small" @click="exportAllPics">导出图片</a-button>
+                <a-button size="small" @click="handleExportCsv">导出 CSV</a-button>
+              </template>
+              <div :id="'chart-0'" class="chart-item" style="height: 420px"></div>
+            </a-card>
+
+            <!-- 多指标使用网格布局 -->
+            <template v-else>
+              <div class="chart-grid-header">
+                <a-space>
+                  <a-radio-group v-model:value="chartType" size="small">
+                    <a-radio-button value="line">折线</a-radio-button>
+                    <a-radio-button value="bar">柱状</a-radio-button>
+                    <a-radio-button value="area">面积</a-radio-button>
+                  </a-radio-group>
+                  <a-button size="small" @click="exportAllPics">导出全部图片</a-button>
+                  <a-button size="small" @click="handleExportCsv">导出 CSV</a-button>
+                </a-space>
+              </div>
+              <a-row :gutter="[12, 12]" class="chart-grid">
+                <a-col 
+                  v-for="(serie, index) in chartData.series" 
+                  :key="index"
+                  :span="chartData.series.length === 2 ? 12 : 8">
+                  <a-card size="small" class="chart-card mini-chart" :class="'chart-card-' + index">
+                    <template #title>
+                      <span class="chart-title">
+                        <span class="indicator-icon">{{ getIndicatorIcon(serie.name) }}</span>
+                        {{ serie.name }}
+                      </span>
+                    </template>
+                    <template #extra>
+                      <a-tag :color="getIndicatorColor(index)">
+                        {{ serie.unit || '单位' }}
+                      </a-tag>
+                    </template>
+                    <div :id="'chart-' + index" class="chart-item" style="height: 280px"></div>
+                  </a-card>
+                </a-col>
+              </a-row>
             </template>
-            <div id="main-chart" style="height: 420px"></div>
+          </div>
+          
+          <!-- 空状态 -->
+          <a-card v-else size="small" class="chart-card">
+            <a-empty description="请选择指标并点击查询以查看图表" />
           </a-card>
         </a-spin>
       </a-col>
@@ -150,7 +200,8 @@ export default {
       indicatorTree: [],
       checkedKeys: [],
       chartType: 'line',
-      chart: null,
+      charts: [], // 改为数组存储多个图表实例
+      chartData: { xAxis: [], series: [] }, // 存储图表数据
       cards: [],
       drawerVisible: false,
       selectedCounties: [],
@@ -160,19 +211,25 @@ export default {
     }
   },
   mounted() {
-    this.initChart()
     this.loadCities()
     this.loadIndicators()
   },
   watch: {
+    chartType() {
+      // 图表类型切换时重绘
+      if (this.chartData.series.length > 0) {
+        this.$nextTick(() => {
+          this.drawCharts(this.chartData.xAxis, this.chartData.series)
+        })
+      }
+    },
     checkedKeys() {
       this.checkedIndicators = this.flattenTree(this.indicatorTree).filter(
         item => this.checkedKeys.includes(item.key)
       )
       // 指标选择变化后尝试自动查询
       this.scheduleAutoQuery()
-    }
-    ,
+    },
     selectedCountyId(newVal) {
       if (newVal) {
         this.scheduleAutoQuery()
@@ -201,9 +258,56 @@ export default {
       }, this.autoQueryDelay)
     },
     /* ===== 初始化 ===== */
-    initChart() {
-      this.chart = echarts.init(document.getElementById('main-chart'))
-      window.addEventListener('resize', () => this.chart.resize())
+    initCharts() {
+      // 清理旧图表
+      this.charts.forEach(chart => {
+        if (chart) chart.dispose()
+      })
+      this.charts = []
+
+      // 为每个指标创建独立图表
+      this.chartData.series.forEach((serie, index) => {
+        const dom = document.getElementById(`chart-${index}`)
+        if (dom) {
+          const chart = echarts.init(dom)
+          this.charts.push(chart)
+        }
+      })
+
+      // 监听窗口大小变化
+      window.addEventListener('resize', this.handleResize)
+    },
+
+    handleResize() {
+      this.charts.forEach(chart => {
+        if (chart) chart.resize()
+      })
+    },
+
+    getIndicatorIcon(name) {
+      const iconMap = {
+        'GDP': '💰',
+        '人口': '👥',
+        '收入': '💵',
+        '支出': '💳',
+        '投资': '📈',
+        '消费': '🛒',
+        '产量': '🌾',
+        '面积': '🏞️',
+        '学校': '🏫',
+        '医院': '🏥',
+        '公路': '🛣️',
+        '铁路': '🚄'
+      }
+      for (const [key, icon] of Object.entries(iconMap)) {
+        if (name.includes(key)) return icon
+      }
+      return '📊'
+    },
+
+    getIndicatorColor(index) {
+      const colors = ['#1890ff', '#52c41a', '#fa8c16', '#722ed1', '#eb2f96', '#13c2c2', '#faad14', '#f5222d']
+      return colors[index % colors.length]
     },
     
     /* ===== 加载数据 ===== */
@@ -327,7 +431,15 @@ export default {
         if (result.ok) {
           this.cards = result.data.cards
           this.selectedCounties = result.data.counties
-          this.drawChart(result.data.xAxis, result.data.series)
+          this.chartData = {
+            xAxis: result.data.xAxis,
+            series: result.data.series
+          }
+          // 等待DOM更新后初始化图表
+          this.$nextTick(() => {
+            this.initCharts()
+            this.drawCharts(result.data.xAxis, result.data.series)
+          })
         } else {
           message.error(result.error || '查询数据失败')
         }
@@ -340,59 +452,150 @@ export default {
     },
     
     /* ===== 绘制图表 ===== */
-    drawChart(xAxis, series) {
+    drawCharts(xAxis, series) {
       if (!xAxis || !series || series.length === 0) {
-        this.chart.clear()
         return
       }
+
+      // 为每个指标创建独立图表
+      series.forEach((serie, index) => {
+        const chart = this.charts[index]
+        if (!chart) return
+
+        const option = this.getChartOption(xAxis, serie, index)
+        chart.setOption(option, true)
+      })
+    },
+
+    getChartOption(xAxis, serie, index) {
+      const color = this.getIndicatorColor(index)
       
-      const opts = {
-        line: () => ({
-          tooltip: { trigger: 'axis' },
-          legend: { data: series.map(s => s.name) },
-          xAxis: { type: 'category', data: xAxis },
-          yAxis: { type: 'value' },
-          series: series.map(s => ({ ...s, type: 'line', smooth: true }))
-        }),
-        bar: () => ({
-          tooltip: { trigger: 'axis' },
-          legend: { data: series.map(s => s.name) },
-          xAxis: { type: 'category', data: xAxis },
-          yAxis: { type: 'value' },
-          series: series.map(s => ({ ...s, type: 'bar' }))
-        }),
-        radar: () => {
-          const ind = series.map(s => ({ 
-            name: s.name, 
-            max: Math.max(...s.data) * 1.2 
-          }))
-          return {
-            tooltip: {},
-            legend: { data: series.map(s => s.name) },
-            radar: { indicator: ind },
-            series: [{ 
-              type: 'radar', 
-              data: series.map(s => ({ value: s.data, name: s.name })) 
-            }]
+      const baseOption = {
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          borderColor: color,
+          borderWidth: 1,
+          textStyle: { color: '#fff' },
+          axisPointer: {
+            type: 'cross',
+            crossStyle: { color: '#999' }
+          },
+          formatter: (params) => {
+            const param = params[0]
+            return `${param.name}<br/>${serie.name}: <strong>${param.value}${serie.unit || ''}</strong>`
           }
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          top: '10%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: xAxis,
+          boundaryGap: this.chartType === 'bar',
+          axisLine: { lineStyle: { color: '#ccc' } },
+          axisLabel: { color: '#666' }
+        },
+        yAxis: {
+          type: 'value',
+          name: serie.unit || '',
+          nameTextStyle: { color: '#999' },
+          axisLine: { lineStyle: { color: '#ccc' } },
+          axisLabel: { color: '#666' },
+          splitLine: { lineStyle: { type: 'dashed', color: '#eee' } }
+        }
+      }
+
+      if (this.chartType === 'line') {
+        return {
+          ...baseOption,
+          series: [{
+            name: serie.name,
+            type: 'line',
+            smooth: true,
+            data: serie.data,
+            symbolSize: 8,
+            itemStyle: { color: color },
+            lineStyle: { width: 3, color: color },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: `${color}40` },
+                { offset: 1, color: `${color}10` }
+              ])
+            }
+          }]
+        }
+      } else if (this.chartType === 'bar') {
+        return {
+          ...baseOption,
+          series: [{
+            name: serie.name,
+            type: 'bar',
+            data: serie.data,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: color },
+                { offset: 1, color: `${color}80` }
+              ]),
+              borderRadius: [6, 6, 0, 0]
+            },
+            label: {
+              show: serie.data.length <= 10,
+              position: 'top',
+              formatter: '{c}',
+              color: '#666'
+            }
+          }]
+        }
+      } else if (this.chartType === 'area') {
+        return {
+          ...baseOption,
+          series: [{
+            name: serie.name,
+            type: 'line',
+            smooth: true,
+            data: serie.data,
+            symbolSize: 6,
+            itemStyle: { color: color },
+            lineStyle: { width: 2, color: color },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: `${color}60` },
+                { offset: 1, color: `${color}05` }
+              ])
+            }
+          }]
         }
       }
       
-      this.chart.setOption(opts[this.chartType](), true)
+      return baseOption
     },
     
     /* ===== 导出功能 ===== */
-    exportPic() {
+    exportAllPics() {
       try {
-        const url = this.chart.getDataURL({
-          type: 'png',
-          pixelRatio: 2,
-          backgroundColor: '#fff'
+        this.charts.forEach((chart, index) => {
+          if (!chart) return
+          const url = chart.getDataURL({
+            type: 'png',
+            pixelRatio: 2,
+            backgroundColor: '#fff'
+          })
+          const a = document.createElement('a')
+          a.href = url
+          const indicatorName = this.chartData.series[index]?.name || `指标${index + 1}`
+          a.download = `${indicatorName}_${new Date().getTime()}.png`
+          a.click()
+          // 延迟下一个下载，避免浏览器拦截
+          if (index < this.charts.length - 1) {
+            setTimeout(() => {}, 200)
+          }
         })
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `内蒙古贫困县分析图表_${new Date().getTime()}.png`
-        a.click()
+        message.success('图片导出成功')
       } catch (error) {
         message.error('导出图片失败')
       }
@@ -436,6 +639,13 @@ export default {
     removeCounty(id) {
       this.selectedCounties = this.selectedCounties.filter(c => c.county_id !== id)
     }
+  },
+  beforeUnmount() {
+    // 清理图表实例
+    this.charts.forEach(chart => {
+      if (chart) chart.dispose()
+    })
+    window.removeEventListener('resize', this.handleResize)
   }
 }
 </script>
@@ -454,9 +664,86 @@ export default {
 .main-body {
   margin-top: 12px;
 }
+
+/* 图表容器样式 */
+.charts-container {
+  margin-top: 12px;
+}
+
+/* 单图表大图样式 */
+.single-chart {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  
+  .chart-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    
+    .indicator-icon {
+      font-size: 20px;
+    }
+  }
+}
+
+/* 多图表网格头部 */
+.chart-grid-header {
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 图表网格样式 */
+.chart-grid {
+  .mini-chart {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    
+    .chart-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      
+      .indicator-icon {
+        font-size: 18px;
+      }
+    }
+  }
+  
+  // 为每个卡片添加渐变边框效果
+  .chart-card-0 { border-color: #1890ff20; }
+  .chart-card-1 { border-color: #52c41a20; }
+  .chart-card-2 { border-color: #fa8c1620; }
+  .chart-card-3 { border-color: #722ed120; }
+  .chart-card-4 { border-color: #eb2f9620; }
+  .chart-card-5 { border-color: #13c2c220; }
+}
+
 .chart-card {
   margin-top: 12px;
 }
+
+.chart-item {
+  width: 100%;
+}
+
 .indicator-tip {
   color: #999;
   padding: 8px 0;

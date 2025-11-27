@@ -119,21 +119,144 @@ SELECT
   ) as last_adopt_year
 FROM policies p;
 
--- 7. 为关联强度字段设置初始值（基于已有数据）
+-- 7. 基于实际指标数据计算政策关联强度
+-- 计算逻辑：综合多个维度的指标变化率，反映政策实施效果
+-- 
+-- 计算维度：
+--   1. 经济增长维度 (40%权重): GDP增长率、人均收入增长率
+--   2. 农业发展维度 (30%权重): 粮食产量增长、耕地面积变化
+--   3. 基础设施维度 (20%权重): 公路里程增长、宽带用户增长
+--   4. 社会保障维度 (10%权重): 医疗床位增长、医保参保率增长
+--
+-- 计算方法：
+--   - 对比政策发布年份前后的指标变化
+--   - 计算年均增长率，归一化到 0-1 范围
+--   - 加权求和得到综合强度值
+
 UPDATE rel_policy_county rpc
-SET strength = (
-  SELECT CASE 
-    WHEN COUNT(id.data_id) > 0 THEN LEAST(1.0, 0.5 + COUNT(id.data_id) * 0.1)
-    ELSE 0.7
-  END
-  FROM counties c
-  LEFT JOIN interviewees ie ON ie.county_id = c.county_id
-  LEFT JOIN rel_interviewee_event rie ON ie.interviewee_id = rie.interviewee_id
-  LEFT JOIN interview_events evt ON rie.event_id = evt.event_id
-  LEFT JOIN interview_data id ON evt.event_id = id.event_id
-  WHERE c.county_id = rpc.county_id
-)
-WHERE strength = 1.0;
+JOIN policies p ON rpc.policy_id = p.policy_id
+SET rpc.strength = GREATEST(0.20, LEAST(0.95, (
+  -- 1. 经济增长维度 (40%权重)
+  COALESCE((
+    SELECT 
+      0.40 * (
+        -- GDP增长率贡献 (20%)
+        0.50 * CASE 
+          WHEN ei_before.gdp > 0 AND ei_after.gdp > 0 
+          THEN LEAST(1.0, (ei_after.gdp - ei_before.gdp) / ei_before.gdp / 0.15)  -- 归一化：15%增长率 = 1.0
+          ELSE 0.5 
+        END +
+        -- 人均收入增长率贡献 (20%)
+        0.50 * CASE 
+          WHEN ei_before.disp_income_rural > 0 AND ei_after.disp_income_rural > 0 
+          THEN LEAST(1.0, (ei_after.disp_income_rural - ei_before.disp_income_rural) / ei_before.disp_income_rural / 0.10)  -- 归一化：10%增长率 = 1.0
+          ELSE 0.5 
+        END
+      )
+    FROM 
+      (SELECT AVG(gdp) as gdp, AVG(disp_income_rural) as disp_income_rural
+       FROM economic_indicators 
+       WHERE county_id = rpc.county_id 
+       AND year BETWEEN YEAR(p.issue_date) - 2 AND YEAR(p.issue_date) - 1
+      ) ei_before,
+      (SELECT AVG(gdp) as gdp, AVG(disp_income_rural) as disp_income_rural
+       FROM economic_indicators 
+       WHERE county_id = rpc.county_id 
+       AND year BETWEEN YEAR(p.issue_date) + 1 AND YEAR(p.issue_date) + 3
+      ) ei_after
+  ), 0.20) +
+  
+  -- 2. 农业发展维度 (30%权重)
+  COALESCE((
+    SELECT 
+      0.30 * (
+        -- 粮食产量增长贡献 (20%)
+        0.67 * CASE 
+          WHEN ai_before.grain_yield > 0 AND ai_after.grain_yield > 0 
+          THEN LEAST(1.0, (ai_after.grain_yield - ai_before.grain_yield) / ai_before.grain_yield / 0.08)  -- 归一化：8%增长率 = 1.0
+          ELSE 0.5 
+        END +
+        -- 耕地面积增长贡献 (10%)
+        0.33 * CASE 
+          WHEN ai_before.arable_land > 0 AND ai_after.arable_land > 0 
+          THEN LEAST(1.0, (ai_after.arable_land - ai_before.arable_land) / ai_before.arable_land / 0.05 + 0.5)  -- 归一化：5%增长率 = 1.0, 负增长映射到0-0.5
+          ELSE 0.5 
+        END
+      )
+    FROM 
+      (SELECT AVG(grain_yield) as grain_yield, AVG(arable_land) as arable_land
+       FROM agriculture_indicators 
+       WHERE county_id = rpc.county_id 
+       AND year BETWEEN YEAR(p.issue_date) - 2 AND YEAR(p.issue_date) - 1
+      ) ai_before,
+      (SELECT AVG(grain_yield) as grain_yield, AVG(arable_land) as arable_land
+       FROM agriculture_indicators 
+       WHERE county_id = rpc.county_id 
+       AND year BETWEEN YEAR(p.issue_date) + 1 AND YEAR(p.issue_date) + 3
+      ) ai_after
+  ), 0.15) +
+  
+  -- 3. 基础设施维度 (20%权重)
+  COALESCE((
+    SELECT 
+      0.20 * (
+        -- 公路里程增长贡献 (10%)
+        0.50 * CASE 
+          WHEN ii_before.road_mileage > 0 AND ii_after.road_mileage > 0 
+          THEN LEAST(1.0, (ii_after.road_mileage - ii_before.road_mileage) / ii_before.road_mileage / 0.06)  -- 归一化：6%增长率 = 1.0
+          ELSE 0.5 
+        END +
+        -- 宽带用户增长贡献 (10%)
+        0.50 * CASE 
+          WHEN ii_before.broadband_users > 0 AND ii_after.broadband_users > 0 
+          THEN LEAST(1.0, (ii_after.broadband_users - ii_before.broadband_users) / ii_before.broadband_users / 0.20)  -- 归一化：20%增长率 = 1.0
+          ELSE 0.5 
+        END
+      )
+    FROM 
+      (SELECT AVG(road_mileage) as road_mileage, AVG(broadband_users) as broadband_users
+       FROM infrastructure_indicators 
+       WHERE county_id = rpc.county_id 
+       AND year BETWEEN YEAR(p.issue_date) - 2 AND YEAR(p.issue_date) - 1
+      ) ii_before,
+      (SELECT AVG(road_mileage) as road_mileage, AVG(broadband_users) as broadband_users
+       FROM infrastructure_indicators 
+       WHERE county_id = rpc.county_id 
+       AND year BETWEEN YEAR(p.issue_date) + 1 AND YEAR(p.issue_date) + 3
+      ) ii_after
+  ), 0.10) +
+  
+  -- 4. 社会保障维度 (10%权重)
+  COALESCE((
+    SELECT 
+      0.10 * (
+        -- 医疗床位增长贡献 (5%)
+        0.50 * CASE 
+          WHEN mi_before.medical_beds > 0 AND mi_after.medical_beds > 0 
+          THEN LEAST(1.0, (mi_after.medical_beds - mi_before.medical_beds) / mi_before.medical_beds / 0.08)  -- 归一化：8%增长率 = 1.0
+          ELSE 0.5 
+        END +
+        -- 医保参保人数增长贡献 (5%)
+        0.50 * CASE 
+          WHEN mi_before.medical_insurance_users > 0 AND mi_after.medical_insurance_users > 0 
+          THEN LEAST(1.0, (mi_after.medical_insurance_users - mi_before.medical_insurance_users) / mi_before.medical_insurance_users / 0.05)  -- 归一化：5%增长率 = 1.0
+          ELSE 0.5 
+        END
+      )
+    FROM 
+      (SELECT AVG(medical_beds) as medical_beds, AVG(medical_insurance_users) as medical_insurance_users
+       FROM medical_social_indicators 
+       WHERE county_id = rpc.county_id 
+       AND year BETWEEN YEAR(p.issue_date) - 2 AND YEAR(p.issue_date) - 1
+      ) mi_before,
+      (SELECT AVG(medical_beds) as medical_beds, AVG(medical_insurance_users) as medical_insurance_users
+       FROM medical_social_indicators 
+       WHERE county_id = rpc.county_id 
+       AND year BETWEEN YEAR(p.issue_date) + 1 AND YEAR(p.issue_date) + 3
+      ) mi_after
+  ), 0.05)
+)))
+WHERE rpc.strength = 1.0;
 
 -- 8. 创建索引优化查询性能（idx_policy_type 和 idx_issue_date 已在 init.sql 中创建）
 -- 幂等：重复执行时忽略错误

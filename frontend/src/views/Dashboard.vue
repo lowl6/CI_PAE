@@ -13,10 +13,10 @@
       <!-- 系统功能简介 -->
       <div class="system-features card">
         <div class="feature-main">
-          <h2>内蒙古自治区经济发展监测系统</h2>
+          <h2>内蒙古自治区乡村振兴监测系统</h2>
           <p class="feature-desc">
             本系统整合了内蒙古自治区各县区的多维度数据，提供全面的数据查询、趋势分析和区域对比功能，
-            涵盖经济、人口、农业、工业、基础设施、教育科技、医疗卫生等七大核心领域。
+            涵盖经济、人口、农业、工业、基础设施、教育科技、医疗卫生等七大核心领域，助力乡村振兴战略实施。
           </p>
           <div class="data-stats">
             <div class="stat-item">
@@ -33,7 +33,7 @@
             </div>
             <div class="stat-item">
               <span class="stat-number">{{ totalPoorCounties }}</span>
-              <span class="stat-label">贫困县数量</span>
+              <span class="stat-label">重点帮扶县</span>
             </div>
           </div>
         </div>
@@ -72,20 +72,70 @@
           </div>
           
           <div class="county-list">
-            <h4>盟市列表</h4>
+            <h4>盟市列表 <span class="list-tip">(点击查看详情)</span></h4>
             <div class="county-grid">
               <div 
                 v-for="county in counties" 
                 :key="county.id"
                 class="county-item"
+                :class="{ 'active': selectedCounty === county.id }"
+                @click="handleCountyClick(county)"
               >
                 <span class="county-name">{{ county.name }}</span>
-                <span class="county-data">贫困县数量: {{ county.poorCountyCount || 0 }}</span>
+                <span class="county-data">重点帮扶县: {{ county.poorCountyCount || 0 }}</span>
+                <span class="icon-arrow">→</span>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- 盟市详情弹窗 -->
+      <a-modal
+        v-model:open="countyDetailVisible"
+        :title="`${selectedCountyData.name} - 重点帮扶县详情`"
+        width="700px"
+        :footer="null"
+      >
+        <div class="county-detail-content">
+          <div class="detail-summary">
+            <a-statistic 
+              title="重点帮扶县总数" 
+              :value="selectedCountyData.poorCountyCount || 0" 
+              suffix="个"
+            />
+            <a-statistic 
+              title="已脱贫人口" 
+              :value="selectedCountyData.poorPopulation || '--'" 
+            />
+          </div>
+          
+          <a-divider />
+          
+          <div class="poor-counties-list" v-if="selectedCountyData.poorCounties && selectedCountyData.poorCounties.length > 0">
+            <h4>重点帮扶县列表</h4>
+            <a-list
+              :data-source="selectedCountyData.poorCounties"
+              :grid="{ gutter: 16, column: 2 }"
+            >
+              <template #renderItem="{ item }">
+                <a-list-item>
+                  <a-card size="small" hoverable>
+                    <template #title>
+                      <span style="font-size: 14px;">{{ item.name }}</span>
+                    </template>
+                    <p style="margin: 0; font-size: 12px; color: #666;">
+                      贫困程度: <a-tag :color="getPovertyLevelColor(item.level)">{{ item.level }}</a-tag>
+                    </p>
+                  </a-card>
+                </a-list-item>
+              </template>
+            </a-list>
+          </div>
+          
+          <a-empty v-else description="暂无重点帮扶县数据" />
+        </div>
+      </a-modal>
 
       <!-- 核心指标 -->
       <div class="indicator-cards">
@@ -129,7 +179,7 @@
     <!-- 页脚 -->
     <footer class="app-footer">
       <div class="footer-content">
-        <span>攻坚印记内蒙古自治区经验智能提炼系统 © 2025 版权所有</span>
+        <span>内蒙古自治区乡村振兴智能监测系统 © 2025 版权所有</span>
         <div class="footer-links">
           <a href="#">关于系统</a>
           <a href="#">使用帮助</a>
@@ -148,6 +198,8 @@ export default {
   data() {
     return {
       selectedCounty: '',
+      countyDetailVisible: false,
+      selectedCountyData: {},
       mapLoaded: false,
       mapError: false,
       loading: false,
@@ -167,7 +219,7 @@ export default {
         { id: 12, name: '阿拉善盟', poorCountyCount: 0 }
       ],
       indicators: [
-        { title: '累计脱贫人数', value: '--', change: 0, desc: '较上一周期增长' },
+        { title: '已脱贫人数', value: '--', change: 0, desc: '较上一周期数据' },
         { title: '帮扶政策数', value: '--', change: 0, desc: '较上一周期增长' },
         { title: '访谈记录数', value: '--', change: 0, desc: '较上一周期增长' },
         { title: '群众满意度', value: '--', change: 0, desc: '较上一周期增长' }
@@ -192,15 +244,108 @@ export default {
       this.mapError = true;
     },
     
+    // 处理盟市点击事件
+    handleCountyClick(county) {
+      this.selectedCounty = county.id;
+      this.selectedCountyData = {
+        ...county,
+        poorCounties: this.getMockPoorCountiesByCity(county.name),
+        poorPopulation: this.calculatePoorPopulation(county.poorCountyCount)
+      };
+      this.countyDetailVisible = true;
+    },
+    
+    // 获取贫困程度颜色
+    getPovertyLevelColor(level) {
+      const colorMap = {
+        '深度贫困': 'red',
+        '重度贫困': 'orange',
+        '中度贫困': 'blue',
+        '轻度贫困': 'green'
+      };
+      return colorMap[level] || 'default';
+    },
+    
+    // 计算已脱贫人口(模拟数据)
+    calculatePoorPopulation(countyCount) {
+      if (!countyCount) return '0万人';
+      const population = (countyCount * 1.5 + Math.random() * 2).toFixed(1);
+      return `${population}万人`;
+    },
+    
+    // 模拟获取盟市下的贫困县详情
+    getMockPoorCountiesByCity(cityName) {
+      const poorCountiesMap = {
+        '呼和浩特市': [
+          { name: '武川县', level: '中度贫困' },
+          { name: '清水河县', level: '轻度贫困' }
+        ],
+        '包头市': [
+          { name: '固阳县', level: '轻度贫困' }
+        ],
+        '呼伦贝尔市': [
+          { name: '鄂伦春自治旗', level: '深度贫困' },
+          { name: '莫力达瓦达斡尔族自治旗', level: '重度贫困' },
+          { name: '阿荣旗', level: '中度贫困' },
+          { name: '鄂温克族自治旗', level: '中度贫困' },
+          { name: '陈巴尔虎旗', level: '轻度贫困' }
+        ],
+        '兴安盟': [
+          { name: '科尔沁右翼前旗', level: '重度贫困' },
+          { name: '科尔沁右翼中旗', level: '深度贫困' },
+          { name: '扎赉特旗', level: '中度贫困' }
+        ],
+        '通辽市': [
+          { name: '科尔沁左翼中旗', level: '深度贫困' },
+          { name: '科尔沁左翼后旗', level: '重度贫困' },
+          { name: '库伦旗', level: '中度贫困' },
+          { name: '奈曼旗', level: '中度贫困' }
+        ],
+        '赤峰市': [
+          { name: '阿鲁科尔沁旗', level: '重度贫困' },
+          { name: '巴林左旗', level: '重度贫困' },
+          { name: '巴林右旗', level: '中度贫困' },
+          { name: '林西县', level: '中度贫困' },
+          { name: '克什克腾旗', level: '轻度贫困' },
+          { name: '翁牛特旗', level: '轻度贫困' }
+        ],
+        '锡林郭勒盟': [
+          { name: '太仆寺旗', level: '中度贫困' },
+          { name: '正镶白旗', level: '中度贫困' },
+          { name: '正蓝旗', level: '轻度贫困' }
+        ],
+        '乌兰察布市': [
+          { name: '化德县', level: '深度贫困' },
+          { name: '商都县', level: '重度贫困' },
+          { name: '兴和县', level: '中度贫困' },
+          { name: '察哈尔右翼前旗', level: '轻度贫困' }
+        ],
+        '鄂尔多斯市': [
+          { name: '杭锦旗', level: '轻度贫困' }
+        ],
+        '巴彦淖尔市': [
+          { name: '磴口县', level: '中度贫困' },
+          { name: '乌拉特中旗', level: '轻度贫困' }
+        ],
+        '乌海市': [],
+        '阿拉善盟': [
+          { name: '阿拉善左旗', level: '中度贫困' },
+          { name: '阿拉善右旗', level: '轻度贫困' }
+        ]
+      };
+      
+      return poorCountiesMap[cityName] || [];
+    },
+    
     // 模拟核心指标数据
     getMockDashboardData() {
       return {
         indicators: [
           {
-            title: "累计脱贫人数",
+            title: "已脱贫人数",
             value: "9899万",
             change: 12.5,
-            desc: "较上一周期增长"
+            desc: "较上一周期数据"
           },
           {
             title: "帮扶政策数",
@@ -696,6 +841,15 @@ export default {
   margin: 0 0 12px 0;
   color: #333;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.list-tip {
+  font-size: 12px;
+  color: #999;
+  font-weight: normal;
 }
 
 .county-grid {
@@ -707,11 +861,37 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
+  padding: 10px 12px;
   background: white;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
-  cursor: default;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.county-item:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.county-item.active {
+  border-color: #667eea;
+  background: linear-gradient(90deg, #f8f9ff 0%, #fff 100%);
+}
+
+.county-item .icon-arrow {
+  color: #667eea;
+  font-size: 14px;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.county-item:hover .icon-arrow {
+  opacity: 1;
+  transform: translateX(4px);
 }
 
 .county-name {
@@ -750,6 +930,25 @@ export default {
 }
 .footer-links a:hover {
   color: #fff;
+}
+
+/* 弹窗样式 */
+.county-detail-content {
+  padding: 8px 0;
+}
+
+.detail-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-bottom: 8px;
+}
+
+.poor-counties-list h4 {
+  margin: 0 0 16px 0;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {
