@@ -1011,27 +1011,234 @@ export default {
   font-weight: 600;
 }
 
+/* 响应式布局 - 手机 */
 @media (max-width: 768px) {
-  .map-container {
-    grid-template-columns: 1fr;
+  .main-content {
+    padding: 12px;
+  }
+  
+  .page-header {
+    margin-bottom: 16px;
+  }
+  
+  .breadcrumb {
+    font-size: 12px;
+  }
+  
+  /* 系统简介卡片 */
+  .system-features {
+    padding: 16px;
+  }
+  
+  .feature-main h2 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  
+  .feature-desc {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  
+  .data-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .stat-item {
+    padding: 12px 8px;
+  }
+  
+  .stat-number {
+    font-size: 18px;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+  }
+  
+  /* 地图区域 */
+  .map-section {
+    margin-bottom: 16px;
   }
   
   .chart-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .chart-title {
+    font-size: 16px;
+  }
+  
+  .map-controls {
+    width: 100%;
+  }
+  
+  .county-count {
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+  
+  .map-container {
+    grid-template-columns: 1fr;
     gap: 12px;
+  }
+  
+  .map-image-container {
+    min-height: 250px;
+  }
+  
+  .inner-mongolia-map {
+    max-width: 100%;
+    max-height: 300px;
+  }
+  
+  .county-list {
+    padding: 12px;
+  }
+  
+  .county-list h4 {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .list-tip {
+    font-size: 11px;
+  }
+  
+  .county-item {
+    padding: 8px 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .county-name {
+    font-size: 13px;
+  }
+  
+  .county-data {
+    font-size: 11px;
+  }
+  
+  .county-item .icon-arrow {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  
+  .county-item:hover .icon-arrow {
+    transform: translateY(-50%) translateX(4px);
+  }
+  
+  /* 指标卡片 */
+  .indicator-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .card {
+    padding: 16px;
+  }
+  
+  .card-icon {
+    font-size: 20px;
+  }
+  
+  .card-body h4 {
+    font-size: 14px;
+  }
+  
+  .card-value {
+    font-size: 24px;
+  }
+  
+  .card-footer {
+    font-size: 12px;
+    margin-top: 8px;
+  }
+  
+  .change-rate {
+    font-size: 12px;
+  }
+  
+  /* 弹窗优化 */
+  .detail-summary {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .poor-counties-list h4 {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  
+  /* 页脚 */
+  .app-footer {
+    padding: 16px 12px;
+  }
+  
+  .footer-content {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+    font-size: 12px;
+  }
+  
+  .footer-links {
+    gap: 12px;
+  }
+  
+  .footer-links a {
+    font-size: 12px;
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 480px) {
+  .main-content {
+    padding: 8px;
+  }
+  
+  .data-stats {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  
+  .stat-item {
+    padding: 10px;
+  }
+  
+  .card {
+    padding: 12px;
+  }
+  
+  .card-value {
+    font-size: 20px;
+  }
+  
+  .feature-main h2 {
+    font-size: 16px;
+  }
+  
+  .feature-desc {
+    font-size: 12px;
+  }
+}
+
+/* 平板横屏优化 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .indicator-cards {
+    grid-template-columns: repeat(2, 1fr);
   }
   
   .data-stats {
     grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .main-content {
-    padding: 16px;
-  }
-  
-  .indicator-cards {
-    grid-template-columns: 1fr;
   }
 }
 </style>

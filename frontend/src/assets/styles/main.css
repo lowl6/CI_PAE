@@ -153,3 +153,144 @@ body {
 .slide-leave-to {
   transform: translateX(-100%);
 }
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  /* 移动端容器内边距调整 */
+  .app-container,
+  .main-content {
+    padding: 12px !important;
+  }
+
+  /* 卡片样式优化 */
+  .card {
+    margin-bottom: 12px;
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  /* 标题字体调整 */
+  h1 {
+    font-size: 20px;
+  }
+
+  h2 {
+    font-size: 18px;
+  }
+
+  h3 {
+    font-size: 16px;
+  }
+
+  h4 {
+    font-size: 14px;
+  }
+
+  /* 按钮优化 */
+  button, .ant-btn {
+    min-height: 40px;
+    font-size: 14px;
+  }
+
+  /* 输入框优化 */
+  input, textarea, select {
+    font-size: 16px !important; /* 防止 iOS 自动缩放 */
+    min-height: 40px;
+  }
+
+  /* 表格响应式 */
+  .ant-table {
+    font-size: 12px;
+  }
+
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 8px 4px;
+  }
+
+  /* 模态框优化 */
+  .ant-modal {
+    max-width: 95vw !important;
+    margin: 8px;
+  }
+
+  .ant-modal-body {
+    padding: 16px;
+  }
+
+  /* 抽屉优化 */
+  .ant-drawer-body {
+    padding: 16px;
+  }
+
+  /* 图表容器 */
+  .chart-container {
+    height: 300px !important;
+  }
+
+  /* 统计卡片网格 */
+  .stat-grid,
+  .data-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+/* 超小屏幕优化 (iPhone SE 等) */
+@media (max-width: 375px) {
+  .app-container,
+  .main-content {
+    padding: 8px !important;
+  }
+
+  .card {
+    padding: 8px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  h2 {
+    font-size: 16px;
+  }
+
+  .stat-grid,
+  .data-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 横屏优化 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-nav {
+    height: 48px !important;
+  }
+
+  .mobile-menu-content {
+    padding: 12px;
+  }
+
+  .chart-container {
+    height: 200px !important;
+  }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+  /* 增加点击区域 */
+  a, button, .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* 优化滚动 */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}

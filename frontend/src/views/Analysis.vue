@@ -764,4 +764,152 @@ export default {
   padding-bottom: 0;
   line-height: 1;
 }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .deep-analysis {
+    padding: 8px;
+  }
+  
+  .filter-bar {
+    padding: 12px 0;
+    margin-bottom: 8px;
+  }
+  
+  /* 筛选栏改为纵向布局 */
+  .filter-bar .ant-row {
+    flex-direction: column;
+  }
+  
+  .filter-bar .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 12px;
+  }
+  
+  .filter-bar .ant-col:last-child {
+    margin-bottom: 0;
+  }
+  
+  .filter-bar .ant-select-selector,
+  .filter-bar .ant-input,
+  .filter-bar .ant-btn {
+    height: 44px !important;
+    line-height: 44px !important;
+    font-size: 15px;
+  }
+  
+  /* 主体区域改为纵向 */
+  .main-body {
+    flex-direction: column;
+    margin-top: 8px;
+  }
+  
+  .main-body .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 12px;
+  }
+  
+  /* 指标卡片改为单列 */
+  .main-body .ant-row[gutter] .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* 图表容器 */
+  .charts-container {
+    margin-top: 8px;
+  }
+  
+  /* 图表网格改为单列 */
+  .chart-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .chart-grid .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* 图表卡片优化 */
+  .single-chart,
+  .mini-chart {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+  
+  .single-chart .chart-title,
+  .mini-chart .chart-title {
+    font-size: 14px;
+  }
+  
+  .single-chart .indicator-icon,
+  .mini-chart .indicator-icon {
+    font-size: 16px;
+  }
+  
+  /* 图表高度调整 */
+  .chart-item {
+    height: 250px !important;
+  }
+  
+  /* 指标树优化 */
+  .indicator-tip {
+    font-size: 12px;
+    padding: 6px 0;
+  }
+  
+  /* 网格头部优化 */
+  .chart-grid-header {
+    padding: 12px;
+    margin-bottom: 8px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .chart-grid-header .ant-btn {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+  .deep-analysis {
+    padding: 6px;
+  }
+  
+  .filter-bar .ant-select-selector,
+  .filter-bar .ant-input,
+  .filter-bar .ant-btn {
+    height: 40px !important;
+    line-height: 40px !important;
+    font-size: 14px;
+  }
+  
+  .chart-item {
+    height: 220px !important;
+  }
+}
+
+/* 平板横屏 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main-body .ant-col:first-child {
+    width: 30% !important;
+    max-width: 30% !important;
+  }
+  
+  .main-body .ant-col:last-child {
+    width: 70% !important;
+    max-width: 70% !important;
+  }
+  
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
 </style>

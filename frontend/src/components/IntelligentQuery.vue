@@ -290,4 +290,118 @@ th {
 .report-content :deep(strong) {
   color: #333;
 }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .query-input {
+    height: 80px;
+    padding: 8px;
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  
+  .query-btn {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 15px;
+    height: 44px;
+  }
+  
+  .result-container {
+    margin-top: 16px;
+    padding: 12px;
+  }
+  
+  .result-section {
+    margin-bottom: 16px;
+  }
+  
+  .result-section h3 {
+    font-size: 16px;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+  }
+  
+  .result-section pre {
+    padding: 8px;
+    font-size: 13px;
+    overflow-x: auto;
+  }
+  
+  table {
+    font-size: 12px;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  th, td {
+    padding: 6px 8px;
+  }
+  
+  .no-data {
+    padding: 8px;
+    font-size: 14px;
+  }
+  
+  .report-content {
+    padding: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  .error-message {
+    margin-top: 8px;
+    padding: 8px;
+    font-size: 14px;
+  }
+  
+  .collapsible-header {
+    padding: 8px;
+    font-size: 15px;
+  }
+  
+  .toggle-icon {
+    font-size: 13px;
+  }
+  
+  .plan-content {
+    padding: 8px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .query-input {
+    height: 70px;
+    padding: 6px;
+    font-size: 14px;
+  }
+  
+  .query-btn {
+    padding: 10px 14px;
+    font-size: 14px;
+    height: 40px;
+  }
+  
+  .result-container {
+    padding: 10px;
+  }
+  
+  .result-section h3 {
+    font-size: 15px;
+  }
+  
+  table {
+    font-size: 11px;
+  }
+  
+  th, td {
+    padding: 4px 6px;
+  }
+  
+  .report-content {
+    font-size: 13px;
+  }
+}
 </style>

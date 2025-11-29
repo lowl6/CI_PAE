@@ -4,11 +4,202 @@ mysql -u root -p -e "DROP DATABASE IF EXISTS ci_pae;"# 政策可视化系统实�
 删除后重启后端即可
 ## 📋 系统概述
 
-政策可视化系统是 CI-PAE 项目的核心功能模块，提供基于 D3.js 力导向布局的政策气泡可视化，并结合口述史（访谈）数据实现多维分析与关联洞察。
+政策可视化系统是 CI-PAE 项目的核心功能模块，提供基于 D3.js 力导向布局的政策气泡可视化，并**深度集成口述史（访谈）数据体系**，实现多维分析与关联洞察。
+
+### 🎯 核心功能
+
+1. **政策气泡可视化**
+   - 基于 D3.js force-directed layout 的动态气泡图
+   - 气泡大小反映政策覆盖县数（county_count）
+   - 颜色区分政策类型（产业扶贫、健康扶贫、教育扶贫等）
+   - 支持拖拽、缩放、hover tooltip 交互
+
+2. **政策效果量化**
+   - **关联强度（strength）**：基于 4 维度指标（经济、农业、基建、社保）对比前后数据，量化政策实施效果（0.20-0.95）
+   - **资源投入统计**：记录政策投入资金、受益人数、资源类型
+   - **时间跨度分析**：追踪政策采纳年份范围（first_adopt_year - last_adopt_year）
+
+3. **口述史数据集成**（⭐ v1.2.0 核心特性）
+   - **6 张核心表**：`interviewees`（受访者）、`interview_events`（访谈事件）、`interview_data`（访谈内容）、`researchers`（调研者）、2 张关联表
+   - **智能关联机制**：
+     - 通过 `policy_keywords` 表自动匹配访谈内容中的政策关键词
+     - 基于县域（county_id）关联政策实施地与访谈发生地
+     - 生成 `policy_interview_cache` 缓存表，预计算相关度评分（0-10 分）
+   - **访谈数据展示**：
+     - 政策详情页显示关联访谈列表（按相关度排序）
+     - 访谈卡片展示受访者身份、县域、关键词、经验总结
+     - 点击卡片查看完整口述内容（含调研者、访谈时间地点）
+
+4. **多维筛选与统计**
+   - 按政策类型、城市、年份、关键词筛选
+   - 聚合统计（类型分布、年份分布、覆盖度排名）
+   - 支持分页与实时搜索
+
+### 🔗 系统集成架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    前端用户界面                              │
+│  (Patterns.vue + PolicyDetailDrawer.vue + InterviewCard)    │
+└──────────────────┬──────────────────────────────────────────┘
+                   │ API 调用
+┌──────────────────▼──────────────────────────────────────────┐
+│                    后端服务层                                │
+│  policyService.js (getPolicyDetail / getInterviewFullContent)│
+└──────────────────┬──────────────────────────────────────────┘
+                   │ SQL 查询
+┌──────────────────▼──────────────────────────────────────────┐
+│                    数据库层                                  │
+│                                                              │
+│  ┌────────────────┐          ┌────────────────┐            │
+│  │ 政策系统表     │          │ 口述史系统表   │            │
+│  │ • policies     │◄─────┐   │ • interviewees │            │
+│  │ • rel_policy_  │      │   │ • interview_   │            │
+│  │   county       │      │   │   events       │            │
+│  │ • policy_      │      │   │ • interview_   │            │
+│  │   resources    │      │   │   data         │            │
+│  │ • policy_      │      │   │ • researchers  │            │
+│  │   keywords     │      │   └────────────────┘            │
+│  └────────────────┘      │                                  │
+│                          │                                  │
+│                  ┌───────▼──────────┐                       │
+│                  │ policy_interview │ [关键桥接表]          │
+│                  │      _cache      │ • 关键词匹配           │
+│                  └──────────────────┘ • 县域关联           │
+│                                       • 相关度评分          │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## 🗄️ 数据库层
+
+### 📊 数据模型总览（政策+口述史集成架构）
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                         政策可视化数据模型                           │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┐      ┌─────────────────────────────┐
+│       policies              │      │       counties              │
+│  (政策主表)                 │      │  (县域信息表)               │
+├─────────────────────────────┤      ├─────────────────────────────┤
+│ PK policy_id                │      │ PK county_id                │
+│    policy_name              │      │    county_name              │
+│    policy_type              │      │    province / city          │
+│    department               │      │    is_poverty_alleviated    │
+│    issue_date               │      └──────────┬──────────────────┘
+│    summary                  │                 │
+└────────┬────────────────────┘                 │
+         │                                      │
+         │                           ┌──────────┴───────────┐
+         │                           │                      │
+┌────────▼────────────────────┐      │      ┌───────────────▼──────────────┐
+│  rel_policy_county          │◄─────┘      │  economic_indicators         │
+│  (政策-县关联表)            │             │  agriculture_indicators      │
+├─────────────────────────────┤             │  infrastructure_indicators   │
+│ PK policy_id, county_id     │             │  medical_social_indicators   │
+│ ⭐ strength (0.20-0.95)     │             │  (8类指标表，用于计算强度)  │
+│    adopt_year               │             └──────────────────────────────┘
+│    notes                    │
+└────────┬────────────────────┘
+         │
+         │
+┌────────▼────────────────────┐      ┌─────────────────────────────┐
+│  policy_keywords            │      │  policy_resources           │
+│  (政策关键词表)             │      │  (政策资源投入表)           │
+├─────────────────────────────┤      ├─────────────────────────────┤
+│ PK policy_id, keyword       │      │ PK resource_id              │
+│    weight (关键词权重)      │      │ FK policy_id                │
+└────────┬────────────────────┘      │    category / amount        │
+         │                           │    beneficiary_count        │
+         │                           └─────────────────────────────┘
+         │
+         │                           ┌─────────────────────────────┐
+         │                           │  interview_events           │
+         │                           │  (访谈事件表)               │
+         │                           ├─────────────────────────────┤
+         │                           │ PK event_id                 │
+         │                           │    location / event_date    │
+         │                           │    topic                    │
+         │                           └──────┬──────────────────────┘
+         │                                  │
+         │                           ┌──────▼──────────────────────┐
+         │                           │  interview_data             │
+         │                           │  (访谈内容表)               │
+         │                           ├─────────────────────────────┤
+         │                           │ PK data_id                  │
+         │                           │ FK event_id                 │
+         │                           │    content (LONGTEXT)       │
+         │                           │    keywords (提取的关键词)  │
+         │                           │    experience_summary       │
+         │                           └──────┬──────────────────────┘
+         │                                  │
+         │                                  │
+         └──────────┬───────────────────────┘
+                    │
+         ┌──────────▼─────────────────────┐
+         │  policy_interview_cache        │
+         │  (政策-访谈关联缓存表) 🔗     │
+         ├────────────────────────────────┤
+         │ PK policy_id, data_id          │
+         │ FK county_id                   │
+         │ ⭐ relevance_score (0-10)      │
+         │    matched_keywords            │
+         │    updated_at                  │
+         └────────────────────────────────┘
+              ▲                     ▲
+              │                     │
+    通过关键词匹配自动生成          通过县域关联
+    (keywords + content)            (interviewees.county_id)
+
+
+┌─────────────────────────────┐      ┌─────────────────────────────┐
+│  interviewees               │      │  researchers                │
+│  (受访者表)                 │      │  (调研者表)                 │
+├─────────────────────────────┤      ├─────────────────────────────┤
+│ PK interviewee_id           │      │ PK researcher_id            │
+│ FK county_id (关联县域)     │      │    name / unit / role       │
+│    name / unit / identity   │      └──────────┬──────────────────┘
+└────────┬────────────────────┘                 │
+         │                                      │
+         │                                      │
+┌────────▼────────────────────┐      ┌──────────▼──────────────────┐
+│  rel_interviewee_event      │      │  rel_data_researcher        │
+│  (受访者-事件关联)          │      │  (数据-调研者关联)          │
+├─────────────────────────────┤      ├─────────────────────────────┤
+│ PK interviewee_id, event_id │      │ PK data_id, researcher_id   │
+│    role (参与角色)          │      │    collection_role          │
+└─────────────────────────────┘      └─────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                        v_policy_stats (视图)                         │
+│   聚合视图：一站式查询政策+县数+资源+访谈+强度                       │
+├──────────────────────────────────────────────────────────────────────┤
+│ • county_count: 覆盖县数 (COUNT from rel_policy_county)             │
+│ • resource_count: 资源投入项 (COUNT from policy_resources)          │
+│ • interview_count: 关联访谈数 (COUNT from policy_interview_cache)   │
+│ • avg_strength: 平均关联强度 (AVG from rel_policy_county.strength)  │
+│ • first_adopt_year / last_adopt_year: 采纳年份范围                  │
+└──────────────────────────────────────────────────────────────────────┘
+
+【图例说明】
+⭐ = 关键计算字段（strength通过4维度指标计算，relevance_score通过关键词匹配计算）
+🔗 = 核心桥接表（连接政策系统与口述史系统）
+FK = 外键关联
+PK = 主键
+```
+
+**架构特点**：
+1. **双系统集成**：政策管理系统 + 口述史采集系统通过 `policy_interview_cache` 无缝集成
+2. **性能优化设计**：
+   - 使用 `policy_interview_cache` 缓存复杂JOIN结果
+   - 视图 `v_policy_stats` 使用子查询避免笛卡尔积
+3. **数据溯源完整**：访谈 → 事件 → 受访者 → 调研者，支持完整追溯
+4. **智能关联**：基于地域(county_id) + 关键词匹配自动生成政策-访谈关联
+
+---
 
 ### 1. 自动迁移与结构增强（v1.2.0 更新）
 **迁移目录**: `backend/database/migrations/`
@@ -30,11 +221,237 @@ mysql -u root -p -e "DROP DATABASE IF EXISTS ci_pae;"# 政策可视化系统实�
    ALTER TABLE rel_policy_county ADD COLUMN adopt_year INT DEFAULT NULL;
    ALTER TABLE rel_policy_county ADD COLUMN notes TEXT DEFAULT NULL;
    ```
-   - `strength`: 关联强度(0-1)，基于访谈提及频率计算
-     - 计算逻辑：`0.5 + 访谈数 × 0.1`，上限1.0
-     - 无访谈数据时默认0.7
+   
+   **字段说明**：
+   - `strength`: **政策效果强度** (DECIMAL 0.20-0.95)
+     - **核心指标**：反映政策在该县的实施效果和影响力
+     - **取值范围**：0.20（最低）到 0.95（最高）
+     - **计算基础**：基于真实指标数据的前后对比
    - `adopt_year`: 该县采纳政策的年份
    - `notes`: 备注信息
+
+---
+
+### 🔢 关联强度（strength）计算详解
+
+#### 计算理念
+政策效果强度通过**4个维度的指标变化**综合评估，对比政策发布前后的数据变化率，反映政策的实际影响力。
+
+#### 时间窗口设定
+- **政策发布前期**：发布年份前 2 年（issue_date - 2 至 issue_date - 1）
+- **政策实施后期**：发布年份后 1-3 年（issue_date + 1 至 issue_date + 3）
+- **对比方法**：计算两个时期的平均值，计算增长率
+
+**示例**：
+- 政策发布日期：2018-05-01
+- 前期数据：2016-2017年平均值
+- 后期数据：2019-2021年平均值
+
+#### 四维度权重分配
+
+| 维度 | 权重 | 说明 |
+|-----|------|------|
+| 经济增长 | 40% | 反映经济发展效果 |
+| 农业发展 | 30% | 反映农业生产改善 |
+| 基础设施 | 20% | 反映基建改善程度 |
+| 社会保障 | 10% | 反映民生保障提升 |
+
+#### 维度1：经济增长（40%权重）
+
+**指标组成**：
+- **GDP增长率**（占经济维度50%）
+  - 计算公式：`(后期GDP - 前期GDP) / 前期GDP`
+  - 归一化标准：15%增长率 = 1.0满分
+  - 评分公式：`MIN(1.0, 增长率 / 0.15)`
+  
+- **农村居民人均可支配收入增长率**（占经济维度50%）
+  - 计算公式：`(后期收入 - 前期收入) / 前期收入`
+  - 归一化标准：10%增长率 = 1.0满分
+  - 评分公式：`MIN(1.0, 增长率 / 0.10)`
+
+**SQL实现**：
+```sql
+-- 经济维度贡献值 = 0.40 × (GDP得分×0.5 + 收入得分×0.5)
+0.40 * (
+  0.50 * CASE 
+    WHEN ei_before.gdp > 0 AND ei_after.gdp > 0 
+    THEN LEAST(1.0, (ei_after.gdp - ei_before.gdp) / ei_before.gdp / 0.15)
+    ELSE 0.5  -- 数据缺失时给基础分
+  END +
+  0.50 * CASE 
+    WHEN ei_before.disp_income_rural > 0 AND ei_after.disp_income_rural > 0 
+    THEN LEAST(1.0, (ei_after.disp_income_rural - ei_before.disp_income_rural) / ei_before.disp_income_rural / 0.10)
+    ELSE 0.5 
+  END
+)
+```
+
+**评分示例**：
+- 县A：GDP增长12%、收入增长8%
+  - GDP得分：12% / 15% = 0.80
+  - 收入得分：8% / 10% = 0.80
+  - 经济维度：0.40 × (0.80×0.5 + 0.80×0.5) = 0.32
+  
+- 县B：GDP增长18%、收入增长15%（超过标准）
+  - GDP得分：MIN(1.0, 18%/15%) = 1.0（封顶）
+  - 收入得分：MIN(1.0, 15%/10%) = 1.0（封顶）
+  - 经济维度：0.40 × (1.0×0.5 + 1.0×0.5) = 0.40（满分）
+
+#### 维度2：农业发展（30%权重）
+
+**指标组成**：
+- **粮食产量增长率**（占农业维度67%）
+  - 归一化标准：8%增长率 = 1.0满分
+  - 评分公式：`MIN(1.0, 增长率 / 0.08)`
+  
+- **耕地面积增长率**（占农业维度33%）
+  - 归一化标准：5%增长率 = 1.0满分
+  - 特殊处理：负增长映射到0-0.5区间（耕地减少是常态）
+  - 评分公式：`MIN(1.0, 增长率 / 0.05 + 0.5)`
+
+**SQL实现**：
+```sql
+-- 农业维度贡献值 = 0.30 × (粮食得分×0.67 + 耕地得分×0.33)
+0.30 * (
+  0.67 * CASE 
+    WHEN ai_before.grain_yield > 0 AND ai_after.grain_yield > 0 
+    THEN LEAST(1.0, (ai_after.grain_yield - ai_before.grain_yield) / ai_before.grain_yield / 0.08)
+    ELSE 0.5 
+  END +
+  0.33 * CASE 
+    WHEN ai_before.arable_land > 0 AND ai_after.arable_land > 0 
+    THEN LEAST(1.0, (ai_after.arable_land - ai_before.arable_land) / ai_before.arable_land / 0.05 + 0.5)
+    ELSE 0.5 
+  END
+)
+```
+
+**评分示例**：
+- 县C：粮食产量增长6%、耕地面积减少2%
+  - 粮食得分：6% / 8% = 0.75
+  - 耕地得分：-2% / 5% + 0.5 = 0.10（负增长降分）
+  - 农业维度：0.30 × (0.75×0.67 + 0.10×0.33) = 0.16
+
+#### 维度3：基础设施（20%权重）
+
+**指标组成**：
+- **公路里程增长率**（占基建维度50%）
+  - 归一化标准：6%增长率 = 1.0满分
+  
+- **宽带用户增长率**（占基建维度50%）
+  - 归一化标准：20%增长率 = 1.0满分（宽带普及速度快）
+
+**SQL实现**：
+```sql
+-- 基建维度贡献值 = 0.20 × (公路得分×0.5 + 宽带得分×0.5)
+0.20 * (
+  0.50 * CASE 
+    WHEN ii_before.road_mileage > 0 AND ii_after.road_mileage > 0 
+    THEN LEAST(1.0, (ii_after.road_mileage - ii_before.road_mileage) / ii_before.road_mileage / 0.06)
+    ELSE 0.5 
+  END +
+  0.50 * CASE 
+    WHEN ii_before.broadband_users > 0 AND ii_after.broadband_users > 0 
+    THEN LEAST(1.0, (ii_after.broadband_users - ii_before.broadband_users) / ii_before.broadband_users / 0.20)
+    ELSE 0.5 
+  END
+)
+```
+
+#### 维度4：社会保障（10%权重）
+
+**指标组成**：
+- **医疗床位增长率**（占社保维度50%）
+  - 归一化标准：8%增长率 = 1.0满分
+  
+- **医保参保人数增长率**（占社保维度50%）
+  - 归一化标准：5%增长率 = 1.0满分
+
+**SQL实现**：
+```sql
+-- 社保维度贡献值 = 0.10 × (床位得分×0.5 + 医保得分×0.5)
+0.10 * (
+  0.50 * CASE 
+    WHEN mi_before.medical_beds > 0 AND mi_after.medical_beds > 0 
+    THEN LEAST(1.0, (mi_after.medical_beds - mi_before.medical_beds) / mi_before.medical_beds / 0.08)
+    ELSE 0.5 
+  END +
+  0.50 * CASE 
+    WHEN mi_before.medical_insurance_users > 0 AND mi_after.medical_insurance_users > 0 
+    THEN LEAST(1.0, (mi_after.medical_insurance_users - mi_before.medical_insurance_users) / mi_before.medical_insurance_users / 0.05)
+    ELSE 0.5 
+  END
+)
+```
+
+#### 最终强度值计算
+
+**公式**：
+```
+strength = GREATEST(0.20, LEAST(0.95, 
+  经济维度贡献 + 农业维度贡献 + 基建维度贡献 + 社保维度贡献
+))
+```
+
+**上下限控制**：
+- **下限0.20**：即使所有指标都无数据，也保证最低评分
+- **上限0.95**：避免满分1.0，为未来优化预留空间
+
+**完整计算示例**：
+
+某县某政策的计算：
+- 经济维度：0.32（GDP增12%、收入增8%）
+- 农业维度：0.16（粮食增6%、耕地减2%）
+- 基建维度：0.15（公路增5%、宽带增18%）
+- 社保维度：0.06（床位增7%、医保增4%）
+- **最终强度**：0.32 + 0.16 + 0.15 + 0.06 = **0.69**
+
+#### 数据缺失处理
+
+**策略**：使用 `COALESCE` 函数为每个维度设置默认值
+- 经济维度缺失：默认0.20（保守估计）
+- 农业维度缺失：默认0.15
+- 基建维度缺失：默认0.10
+- 社保维度缺失：默认0.05
+
+**SQL示例**：
+```sql
+COALESCE((经济维度计算), 0.20) +  -- 数据缺失时给0.20
+COALESCE((农业维度计算), 0.15) +
+COALESCE((基建维度计算), 0.10) +
+COALESCE((社保维度计算), 0.05)
+```
+
+#### 强度值分布统计
+
+执行迁移后，可查询强度分布：
+```sql
+SELECT 
+  CASE 
+    WHEN strength < 0.40 THEN '低效(<0.40)'
+    WHEN strength < 0.60 THEN '中等(0.40-0.60)'
+    WHEN strength < 0.80 THEN '良好(0.60-0.80)'
+    ELSE '优秀(≥0.80)'
+  END as effect_level,
+  COUNT(*) as count,
+  ROUND(AVG(strength), 3) as avg_strength,
+  ROUND(MIN(strength), 3) as min_strength,
+  ROUND(MAX(strength), 3) as max_strength
+FROM rel_policy_county
+GROUP BY effect_level
+ORDER BY avg_strength;
+```
+
+**预期结果示例**：
+```
+效果等级        数量  平均强度  最小值  最大值
+低效(<0.40)     5     0.320    0.220   0.380
+中等(0.40-0.60) 15    0.520    0.410   0.590
+良好(0.60-0.80) 25    0.680    0.610   0.780
+优秀(≥0.80)     8     0.850    0.810   0.950
+```
+
+---
 
 2. **`policy_keywords` 表**（政策关键词表）
    ```sql
@@ -49,6 +466,305 @@ mysql -u root -p -e "DROP DATABASE IF EXISTS ci_pae;"# 政策可视化系统实�
    - `weight`: 关键词权重(0-1)，用于相关度计算
    - 示例数据：('POL001', '马铃薯', 1.0), ('POL001', '种薯', 0.9)
 
+---
+
+### 📚 口述史（访谈）数据表体系
+
+#### 核心表设计
+
+政策可视化系统中，口述史数据通过**4个核心表 + 2个关联表**实现完整的访谈数据管理，并通过`policy_interview_cache`与政策系统关联。
+
+##### 1. **`interviewees` 表**（受访者表）
+```sql
+CREATE TABLE interviewees (
+  interviewee_id VARCHAR(50) PRIMARY KEY COMMENT '受访者唯一标识',
+  name VARCHAR(100) COMMENT '姓名',
+  unit VARCHAR(100) COMMENT '工作单位',
+  identity VARCHAR(50) COMMENT '身份标签（村民/干部/企业主等）',
+  county_id VARCHAR(50) COMMENT '所属县ID [FK → counties]',
+  FOREIGN KEY (county_id) REFERENCES counties(county_id)
+);
+```
+
+**字段说明**：
+- `interviewee_id`: 受访者ID，格式如 `IVE001`, `IVE002`
+- `identity`: 受访者身份分类
+  - **村民/农户**：一线脱贫受益者
+  - **村干部/乡镇干部**：基层政策执行者
+  - **企业主/合作社负责人**：产业带头人
+  - **驻村干部/扶贫专员**：专职扶贫工作者
+- `county_id`: 关联到`counties`表，用于地域分析
+
+**示例数据**：
+```sql
+INSERT INTO interviewees VALUES 
+('IVE001', '张三', '某某村委会', '村支书', 'C001'),
+('IVE002', '李四', '某某农民专业合作社', '理事长', 'C001'),
+('IVE003', '王五', NULL, '农户', 'C002');
+```
+
+**应用场景**：
+- 按身份统计受访者分布（村干部占比、农户占比）
+- 按县域筛选相关访谈对象
+- 关联政策效果时识别不同视角（政策执行者 vs 受益者）
+
+---
+
+##### 2. **`interview_events` 表**（访谈事件表）
+```sql
+CREATE TABLE interview_events (
+  event_id VARCHAR(50) PRIMARY KEY COMMENT '访谈事件ID',
+  location VARCHAR(255) COMMENT '访谈地点（详细地址）',
+  event_date DATE COMMENT '访谈日期',
+  topic VARCHAR(255) COMMENT '访谈主题',
+  INDEX idx_event_date (event_date)
+);
+```
+
+**字段说明**：
+- `event_id`: 访谈事件唯一标识，格式如 `EVT001`
+- `location`: 访谈发生地（如"某某县某某村村委会办公室"）
+- `topic`: 本次访谈主题（如"产业扶贫经验访谈"、"易地搬迁政策落实情况调研"）
+
+**示例数据**：
+```sql
+INSERT INTO interview_events VALUES 
+('EVT001', '某某县某某村村委会', '2020-07-15', '马铃薯产业扶贫经验访谈'),
+('EVT002', '某某县扶贫办会议室', '2021-03-20', '健康扶贫政策执行情况调研');
+```
+
+**设计理念**：
+- 一次访谈事件可以有多个受访者（通过`rel_interviewee_event`关联）
+- 一次事件产生一份或多份访谈记录（`interview_data.event_id`外键）
+
+---
+
+##### 3. **`interview_data` 表**（访谈数据/内容表）
+```sql
+CREATE TABLE interview_data (
+  data_id VARCHAR(50) PRIMARY KEY COMMENT '访谈记录ID',
+  content LONGTEXT COMMENT '访谈内容全文（口述记录/整理稿）',
+  keywords VARCHAR(255) COMMENT '提取的关键词（逗号分隔）',
+  experience_summary TEXT COMMENT '脱贫经验总结（提炼的核心内容）',
+  event_id VARCHAR(50) COMMENT '所属访谈事件ID [FK → interview_events]',
+  FOREIGN KEY (event_id) REFERENCES interview_events(event_id)
+);
+```
+
+**字段说明**：
+- `content`: **核心字段**，存储访谈的完整口述内容
+  - 可能是录音转写文字
+  - 或调研员整理的访谈记录稿
+  - 支持全文检索（用于关键词匹配）
+- `keywords`: 从内容中提取的关键词（人工标注或NLP提取）
+  - 如："马铃薯,补贴,合作社,收入增长"
+  - 用于快速匹配相关政策
+- `experience_summary`: 精炼的经验总结
+  - 如："通过政府补贴推广优质种薯，亩产量提升40%，户均增收5000元"
+
+**示例数据**：
+```sql
+INSERT INTO interview_data VALUES 
+('DAT001', 
+ '我们村从2018年开始种马铃薯，政府给了种薯补贴，每亩补500块钱。我们合作社统一采购了脱毒种薯，产量比以前提高了一大截...（省略2000字）',
+ '马铃薯,种薯补贴,合作社,产量提升',
+ '政府种薯补贴政策带动马铃薯产业发展，通过合作社统一采购优质种薯，亩产量提升40%，户均增收5000元',
+ 'EVT001');
+```
+
+**应用场景**：
+- **政策效果验证**：通过内容中的具体数据（如"增收5000元"）验证政策实施效果
+- **政策关键词匹配**：在`policy_interview_cache`中通过`keywords`和`content`字段匹配政策关键词
+- **经验提炼展示**：在可视化界面展示`experience_summary`作为政策成果案例
+
+---
+
+##### 4. **`researchers` 表**（调研者表）
+```sql
+CREATE TABLE researchers (
+  researcher_id VARCHAR(50) PRIMARY KEY COMMENT '调研者ID',
+  name VARCHAR(100) COMMENT '姓名',
+  unit VARCHAR(100) COMMENT '所属单位',
+  role VARCHAR(50) COMMENT '角色（研究员/助理/学生等）'
+);
+```
+
+**字段说明**：
+- `researcher_id`: 调研员唯一标识，如 `RES001`
+- `role`: 调研角色
+  - **主持人/访谈员**：负责访谈过程
+  - **记录员**：负责记录整理
+  - **研究员**：项目负责人
+
+**示例数据**：
+```sql
+INSERT INTO researchers VALUES 
+('RES001', '赵研究员', '某某大学社会学系', '主持人'),
+('RES002', '孙助理', '某某大学社会学系', '记录员');
+```
+
+---
+
+#### 关联表设计
+
+##### 5. **`rel_interviewee_event` 表**（受访者-事件关联表）
+```sql
+CREATE TABLE rel_interviewee_event (
+  interviewee_id VARCHAR(50) COMMENT '受访者ID [FK]',
+  event_id VARCHAR(50) COMMENT '事件ID [FK]',
+  role VARCHAR(50) COMMENT '参与角色（主讲人/见证人等）',
+  PRIMARY KEY (interviewee_id, event_id),
+  FOREIGN KEY (interviewee_id) REFERENCES interviewees(interviewee_id),
+  FOREIGN KEY (event_id) REFERENCES interview_events(event_id)
+);
+```
+
+**关系说明**：
+- **多对多关系**：一次访谈事件可以有多个受访者，一个受访者可以参与多次访谈
+- `role`: 区分受访者在该事件中的角色
+  - **主讲人**：主要发言对象
+  - **见证人**：补充发言、提供佐证
+
+**示例数据**：
+```sql
+INSERT INTO rel_interviewee_event VALUES 
+('IVE001', 'EVT001', '主讲人'),  -- 村支书作为主讲人
+('IVE002', 'EVT001', '见证人');  -- 合作社理事长作为见证人
+```
+
+---
+
+##### 6. **`rel_data_researcher` 表**（访谈数据-调研者关联表）
+```sql
+CREATE TABLE rel_data_researcher (
+  data_id VARCHAR(50) COMMENT '访谈记录ID [FK]',
+  researcher_id VARCHAR(50) COMMENT '调研者ID [FK]',
+  collection_role VARCHAR(50) COMMENT '收集角色（主持人/记录员等）',
+  PRIMARY KEY (data_id, researcher_id),
+  FOREIGN KEY (data_id) REFERENCES interview_data(data_id),
+  FOREIGN KEY (researcher_id) REFERENCES researchers(researcher_id)
+);
+```
+
+**关系说明**：
+- **多对多关系**：一份访谈记录可能由多人协作完成，一个调研者可以参与多份记录
+- `collection_role`: 记录每个调研者在该记录中的职责
+
+**示例数据**：
+```sql
+INSERT INTO rel_data_researcher VALUES 
+('DAT001', 'RES001', '访谈主持人'),
+('DAT001', 'RES002', '记录整理');
+```
+
+---
+
+#### 访谈数据查询示例
+
+##### 查询1：某县的所有访谈记录及受访者信息
+```sql
+SELECT 
+  ie.county_name,
+  evt.topic,
+  evt.event_date,
+  GROUP_CONCAT(ivee.name SEPARATOR ', ') as interviewees,
+  id.keywords,
+  id.experience_summary
+FROM counties ie
+JOIN interviewees ivee ON ie.county_id = ivee.county_id
+JOIN rel_interviewee_event rie ON ivee.interviewee_id = rie.interviewee_id
+JOIN interview_events evt ON rie.event_id = evt.event_id
+JOIN interview_data id ON evt.event_id = id.event_id
+WHERE ie.county_id = 'C001'
+GROUP BY ie.county_name, evt.topic, evt.event_date, id.keywords, id.experience_summary;
+```
+
+##### 查询2：某政策的所有关联访谈（通过缓存表）
+```sql
+SELECT 
+  p.policy_name,
+  c.county_name,
+  id.keywords,
+  id.experience_summary,
+  pic.relevance_score,
+  pic.matched_keywords
+FROM policy_interview_cache pic
+JOIN policies p ON pic.policy_id = p.policy_id
+JOIN counties c ON pic.county_id = c.county_id
+JOIN interview_data id ON pic.data_id = id.data_id
+WHERE pic.policy_id = 'POL001'
+ORDER BY pic.relevance_score DESC
+LIMIT 10;
+```
+
+##### 查询3：按身份统计受访者分布
+```sql
+SELECT 
+  identity,
+  COUNT(*) as count,
+  COUNT(DISTINCT county_id) as county_count
+FROM interviewees
+GROUP BY identity
+ORDER BY count DESC;
+```
+
+**预期结果**：
+```
+身份          数量  覆盖县数
+村干部         15    8
+农户           20    10
+企业主/合作社   8     6
+驻村干部       5     4
+```
+
+---
+
+#### 口述史数据流程
+
+```
+访谈实施
+   ↓
+创建 interview_events（记录时间地点主题）
+   ↓
+关联 interviewees（通过 rel_interviewee_event）
+   ↓
+整理录入 interview_data（内容+关键词+经验总结）
+   ↓
+标记 researchers（通过 rel_data_researcher）
+   ↓
+自动匹配 policy_keywords（迁移脚本执行）
+   ↓
+生成 policy_interview_cache（政策-访谈关联缓存）
+   ↓
+前端可视化展示（在政策气泡上显示关联访谈数）
+```
+
+---
+
+#### 与政策系统的集成
+
+访谈数据通过以下机制与政策可视化系统深度集成：
+
+1. **关键词匹配机制**
+   - `policy_keywords` 表存储政策关键词
+   - 迁移脚本自动扫描 `interview_data.keywords` 和 `interview_data.content`
+   - 匹配成功则生成 `policy_interview_cache` 记录
+
+2. **相关度评分**
+   - 公式：`(匹配关键词数量 × 1.5) + 3.0`
+   - 用于排序和筛选高相关访谈
+
+3. **地域关联**
+   - `interviewees.county_id` → `counties.county_id` → `rel_policy_county.county_id`
+   - 确保访谈内容与政策实施县域匹配
+
+4. **前端展示**
+   - 政策气泡上显示 `interview_count`（从 `v_policy_stats` 视图读取）
+   - 点击气泡可查看关联访谈的 `experience_summary`
+   - 支持按相关度排序展示访谈案例
+
+---
+
 3. **`policy_interview_cache` 表**（政策-访谈关联缓存表）
    ```sql
    CREATE TABLE policy_interview_cache (
@@ -58,47 +774,174 @@ mysql -u root -p -e "DROP DATABASE IF EXISTS ci_pae;"# 政策可视化系统实�
      relevance_score DECIMAL(4,2) DEFAULT 1.0,
      matched_keywords TEXT,
      updated_at TIMESTAMP,
-     PRIMARY KEY (policy_id, data_id)
+     PRIMARY KEY (policy_id, data_id),
+     FOREIGN KEY (policy_id) REFERENCES policies(policy_id),
+     FOREIGN KEY (data_id) REFERENCES interview_data(data_id),
+     FOREIGN KEY (county_id) REFERENCES counties(county_id)
    );
    ```
    - **核心作用**：预计算政策-访谈相关度，避免实时复杂查询
-   - `relevance_score`: 相关度评分(0-10分制)
-   - `matched_keywords`: 匹配到的关键词列表（逗号分隔）
+   - **桥接角色**：连接政策系统与口述史数据体系
+   - `data_id`: 外键关联到 `interview_data` 表（访谈内容表）
+   - `relevance_score`: 相关度评分(0-10分制)，基于关键词匹配数量计算
+   - `matched_keywords`: 匹配到的关键词列表（逗号分隔），来自 `policy_keywords` 表
+   - 自动填充：迁移脚本执行时自动生成（见下方"相关度计算逻辑"）
 
-##### B. 相关度计算逻辑
+##### B. 政策-访谈相关度计算逻辑
 
-**相关度评分公式**：
+**计算目标**：将政策与访谈数据自动关联，量化两者的相关程度，便于前端展示"该政策被X次访谈提及"。
+
+---
+
+#### 相关度评分公式
+
 ```
 relevance_score = (匹配关键词数量 × 1.5) + 3.0
 ```
 
-**匹配规则**：
-- 在访谈 `keywords` 字段中匹配：`LIKE '%关键词%'`
-- 在访谈 `content` 全文中匹配：`LIKE '%关键词%'`
-- 多个关键词匹配时累加计分
+**参数说明**：
+- **匹配关键词数量**：从 `policy_keywords` 表中读取该政策的所有关键词，检查在访谈数据中出现的个数
+- **权重1.5**：每个关键词贡献1.5分（可调节）
+- **基础分3.0**：确保即使只有地域关联（无关键词匹配）也有基础分
+
+**评分示例**：
+| 匹配关键词数 | 计算过程 | 相关度得分 | 评级 |
+|------------|---------|-----------|------|
+| 0 | 0×1.5 + 3.0 | 3.0 | 低相关 |
+| 2 | 2×1.5 + 3.0 | 6.0 | 中等相关 |
+| 4 | 4×1.5 + 3.0 | 9.0 | 高度相关 |
+| 5+ | 5×1.5 + 3.0 | ≥10.5 (封顶10) | 强相关 |
+
+---
+
+#### 关键词匹配规则
+
+**数据源**：
+- 政策关键词：`policy_keywords` 表中的 `keyword` 字段
+- 访谈数据：`interview_data` 表的两个字段
+  - `keywords`（结构化关键词，逗号分隔）
+  - `content`（全文内容，LONGTEXT）
+
+**匹配逻辑**：
+```sql
+-- 关键词匹配条件（两者满足其一即可）
+WHERE id.keywords LIKE CONCAT('%', pk.keyword, '%')   -- 在结构化关键词中匹配
+   OR id.content LIKE CONCAT('%', pk.keyword, '%')    -- 在全文中模糊匹配
+```
 
 **示例**：
-- 访谈提到2个政策关键词：`2 × 1.5 + 3.0 = 6.0分`
-- 访谈提到4个政策关键词：`4 × 1.5 + 3.0 = 9.0分`
+- 政策"马铃薯产业扶贫"的关键词：['马铃薯', '种薯', '补贴']
+- 访谈A的keywords：`"马铃薯,合作社,收入增长"`
+- 访谈A的content：`"...政府给了种薯补贴，每亩补500块..."`
+- **匹配结果**：
+  - "马铃薯" ✅ (在keywords中)
+  - "种薯" ✅ (在content中)
+  - "补贴" ✅ (在content中)
+  - **相关度得分**：3×1.5 + 3.0 = **7.5分**
 
-**缓存填充SQL**（简化版）：
+---
+
+#### 缓存填充SQL（完整版）
+
+**执行时机**：迁移脚本 `add_policy_enhancements.sql` 第5步自动执行
+
 ```sql
-INSERT INTO policy_interview_cache (policy_id, data_id, relevance_score, matched_keywords)
-SELECT 
+INSERT INTO policy_interview_cache (policy_id, data_id, county_id, relevance_score, matched_keywords)
+SELECT DISTINCT
   rpc.policy_id,
   id.data_id,
-  (SELECT COUNT(*) * 1.5 FROM policy_keywords pk 
+  rpc.county_id,
+  -- 子查询1：计算相关度评分
+  (SELECT COUNT(*) * 1.5 
+   FROM policy_keywords pk 
    WHERE pk.policy_id = rpc.policy_id 
    AND (id.keywords LIKE CONCAT('%', pk.keyword, '%') 
         OR id.content LIKE CONCAT('%', pk.keyword, '%'))
   ) + 3.0 as relevance_score,
-  (SELECT GROUP_CONCAT(pk.keyword) FROM policy_keywords pk 
+  -- 子查询2：收集匹配到的关键词
+  (SELECT GROUP_CONCAT(pk.keyword SEPARATOR ',')
+   FROM policy_keywords pk 
    WHERE pk.policy_id = rpc.policy_id 
    AND (id.keywords LIKE CONCAT('%', pk.keyword, '%') 
         OR id.content LIKE CONCAT('%', pk.keyword, '%'))
   ) as matched_keywords
-FROM rel_policy_county rpc
-JOIN ... -- 通过县域关联访谈
+FROM rel_policy_county rpc                          -- 政策覆盖的县
+JOIN counties c ON rpc.county_id = c.county_id      -- 县基本信息
+JOIN interviewees ie ON ie.county_id = c.county_id -- 该县的受访者
+JOIN rel_interviewee_event rie ON ie.interviewee_id = rie.interviewee_id  -- 受访者参与的访谈事件
+JOIN interview_events evt ON rie.event_id = evt.event_id                  -- 访谈事件详情
+JOIN interview_data id ON evt.event_id = id.event_id                      -- 访谈内容数据
+ON DUPLICATE KEY UPDATE 
+  relevance_score = VALUES(relevance_score),
+  matched_keywords = VALUES(matched_keywords);
+```
+
+**JOIN链路说明**：
+```
+政策覆盖县 (rel_policy_county)
+    ↓
+县信息 (counties)
+    ↓
+该县受访者 (interviewees)
+    ↓
+受访者参与事件 (rel_interviewee_event)
+    ↓
+访谈事件 (interview_events)
+    ↓
+访谈内容 (interview_data) ← 在此层进行关键词匹配
+```
+
+**幂等性保证**：
+- `ON DUPLICATE KEY UPDATE`：若 `(policy_id, data_id)` 已存在则更新评分和关键词
+- 支持重复执行迁移脚本而不产生重复记录
+
+---
+
+#### 缓存表查询示例
+
+##### 示例1：查看某政策的所有关联访谈（按相关度排序）
+```sql
+SELECT 
+  p.policy_name,
+  c.county_name,
+  pic.relevance_score,
+  pic.matched_keywords,
+  id.experience_summary
+FROM policy_interview_cache pic
+JOIN policies p ON pic.policy_id = p.policy_id
+JOIN counties c ON pic.county_id = c.county_id
+JOIN interview_data id ON pic.data_id = id.data_id
+WHERE pic.policy_id = 'POL001'
+ORDER BY pic.relevance_score DESC;
+```
+
+**输出示例**：
+```
+政策名称              县名     相关度  匹配关键词          经验总结
+马铃薯产业扶贫政策    某某县   9.0     马铃薯,种薯,补贴    通过政府补贴推广优质种薯...
+马铃薯产业扶贫政策    另某县   6.0     马铃薯,补贴         合作社统一采购带动增收...
+马铃薯产业扶贫政策    第三县   3.0     (无)                该县主要依靠易地搬迁脱贫
+```
+
+##### 示例2：统计各政策的访谈覆盖情况
+```sql
+SELECT 
+  p.policy_id,
+  p.policy_name,
+  COUNT(DISTINCT pic.data_id) as interview_count,
+  ROUND(AVG(pic.relevance_score), 2) as avg_relevance
+FROM policies p
+LEFT JOIN policy_interview_cache pic ON p.policy_id = pic.policy_id
+GROUP BY p.policy_id, p.policy_name
+ORDER BY interview_count DESC;
+```
+
+**输出示例**：
+```
+政策ID   政策名称              访谈数  平均相关度
+POL001   马铃薯产业扶贫政策     8       7.50
+POL002   健康扶贫兜底政策       5       6.20
+POL003   生态旅游发展政策       3       5.00
 ```
 
 ##### C. `policy_resources` 表增强
@@ -242,10 +1085,36 @@ LIMIT 5;
 }
 ```
 
-### 4. 访谈获取逻辑（v1.1.0 更新）
-- 去除受访者 `GROUP_CONCAT` 聚合，接口按一访谈一受访者返回。
-- 控制器层将 `event_date` 兼容映射为 `interview_date`。
-- 若出现旧多受访者模式（数组返回），前端仅取第一条显示。
+### 4. 口述史数据服务（Interview Service）
+
+**核心方法**：
+- `getInterviewFullContent(dataId)`：返回单条访谈完整信息
+  - 查询表：`interview_data` + `interview_events` + `interviewees` + `researchers`
+  - 关联逻辑：
+    ```sql
+    interview_data (data_id)
+      → interview_events (event_id) [获取访谈时间、地点、主题]
+      → rel_interviewee_event (event_id) [连接受访者]
+      → interviewees (interviewee_id) [获取受访者信息]
+      → counties (county_id) [获取县域信息]
+      → rel_data_researcher (data_id) [连接调研者]
+      → researchers (researcher_id) [获取调研者信息]
+    ```
+  - 返回字段：`data_id`, `interviewee_name`, `identity`, `unit`, `county_name`, `city`, `interview_date`, `researcher_name`, `content`, `keywords`, `experience_summary`
+
+**v1.1.0 更新**：
+- ✅ 去除受访者 `GROUP_CONCAT` 聚合，改为一访谈一受访者模式
+- ✅ 控制器层将数据库字段 `event_date` 映射为前端期望的 `interview_date`
+- ✅ 兼容性处理：若旧数据返回多受访者数组，前端自动取第一条
+
+**应用场景**：
+1. **政策详情抽屉** → "相关访谈"标签页
+   - 从 `policy_interview_cache` 读取关联访谈列表（带相关度评分）
+   - 点击单条访谈卡片时调用此接口获取完整内容
+2. **访谈内容弹窗** → 展示完整口述记录
+   - 显示受访者身份、所属县域
+   - 显示调研者和访谈时间
+   - 高亮匹配的政策关键词（`matched_keywords`）
 
 ### 5. 政策控制器与路由
 **文件**: `backend/controllers/policyController.js`, `backend/routes/*`
@@ -410,838 +1279,3 @@ npm run dev
 - [ ] Network 面板所有 API 返回 `{ok: true}`
 
 ---
-
-## 🐛 常见问题排查
-
-| 问题 | 症状 | 排查点 | 解决方案 |
-|------|------|--------|----------|
-| **气泡数量错误** | 显示的政策数与预期不符 | 1. 检查筛选条件<br>2. 查看Network面板`/api/policies`响应 | 检查视图数据：`SELECT * FROM v_policy_stats;` |
-| **访谈相关度全为0** | 所有访谈显示0分 | 1. `policy_interview_cache` 表是否有数据<br>2. 关键词是否匹配 | 手动执行：`SELECT * FROM policy_interview_cache WHERE relevance_score > 4;` |
-| **指标影响无数据** | Tab 5显示"暂无指标影响数据" | 1. 政策是否覆盖县<br>2. 指标表是否有数据 | 检查：`SELECT COUNT(*) FROM economic_indicators WHERE county_id IN (SELECT county_id FROM rel_policy_county WHERE policy_id='POL001');` |
-| **迁移脚本重复执行报错** | ALTER TABLE Duplicate column | 正常（幂等设计） | initDb.js 已捕获错误，可忽略 |
-| **强度字段全为NULL** | 县列表不显示强度标签 | 迁移的步骤7未执行 | 手动执行：`UPDATE rel_policy_county SET strength = 0.7 WHERE strength IS NULL;` |
-| **资源金额不显示** | 资源列表只有文件名 | `policy_resources` 表未添加新字段 | 检查：`DESC policy_resources;` 应有 amount, beneficiary_count, year |
-| **点击×出现空白闪烁** | 关闭模态框时短暂空白 | `handleClose` 立即清空数据 | 已修复：延迟300ms清空 `policyDetail.value` |
-| **图表不同数量级混合** | GDP(亿)和收入(元)在同一图 | 旧版4分类图表 | 已修复：v1.2.0 改为每指标独立图表 |
-
----
-
-## 📊 性能与扩展
-数据库：索引齐备后考虑缓存热点政策详情；定期刷新 `policy_interview_cache`。
-前端：>200 气泡启用 Canvas；ECharts/Drawer 组件惰性加载。
-后端：多段查询可拆分为并行 Promise.all；可引入 Redis。
-
----
-
-## 🔐 安全
-- 参数化查询防 SQL 注入
-- Vue 模板默认转义防 XSS
-- 未来需：文件下载路径校验、令牌鉴权、中间件限流
-
----
-
-## ✅ 验收清单（更新）
-数据库：视图/新增字段/缓存表均存在；关键词与缓存有数据。
-后端：5 个端点正常；访谈接口对象模式；错误统一。
-前端：气泡/筛选/抽屉/访谈弹窗渲染无 undefined；日期正确。
-交互：拖拽/tooltip/加载状态正常。
-
----
-
-## 📝 快速 API 参考
-（其余端点与 v1.0.0 一致，仅访谈与视图字段更新）
-
----
-
-## 📞 支持与排查
-提交 Issue 前收集：浏览器 Console、Network 响应、后端终端日志、相关 SQL 查询结果。
-
----
-
-**生成时间**: 2025-11-21  
-**版本**: v1.2.0  
-**更新内容**: 
-- 详细说明数据库表结构改动（rel_policy_county, policy_resources新增字段）
-- 详解相关度计算逻辑（关键词匹配算法和评分公式）
-- 详解指标影响分析机制（6指标前后期对比查询）
-- 修复图表数量级混合问题（改为独立图表）
-- 修复模态框关闭空白闪烁问题
-**维护者**: CI-PAE 开发团队
-
-# 政策可视化系统实现总结
-
-## 📋 系统概述
-
-政策可视化系统是CI-PAE项目的核心功能模块,实现了基于D3.js力导向图的政策气泡可视化,并结合口述史数据提供深度分析能力。
-
----
-
-## 🗄️ 数据库层
-
-### 1. 数据库增强迁移脚本
-**文件**: `backend/database/migrations/add_policy_enhancements.sql`
-
-**功能**:
-- 为`rel_policy_county`表添加强度字段(strength: 0-1浮点数)和采纳年份
-- 创建`v_policy_stats`视图聚合政策统计(覆盖县数、访谈数、资源数)
-- 创建`policy_keywords`表用于关键词匹配
-- 创建`policy_interview_cache`表预缓存政策-访谈关联及相关度评分
-- 添加优化索引(policy_type, publish_date, interview_date等)
-
-**核心视图定义**:
-```sql
-CREATE VIEW v_policy_stats AS
-SELECT 
-  p.policy_id,
-  p.policy_name,
-  p.policy_type,
-  p.publish_date,
-  COUNT(DISTINCT rpc.county_id) AS county_count,
-  COUNT(DISTINCT id.data_id) AS interview_count,
-  COUNT(DISTINCT pr.resource_id) AS resource_count
-FROM policies p
-LEFT JOIN rel_policy_county rpc ON p.policy_id = rpc.policy_id
-LEFT JOIN interviewees i ON rpc.county_id = i.county_id
-LEFT JOIN interview_data id ON i.interviewee_id = id.interviewee_id
-LEFT JOIN policy_resources pr ON p.policy_id = pr.policy_id
-GROUP BY p.policy_id;
-```
-
-**使用方法**: 在PowerShell中执行此脚本
-```powershell
-# 方法1: 使用Get-Content管道(推荐)
-Get-Content backend/database/migrations/add_policy_enhancements.sql | mysql -u root -p ci_pae
-
-# 方法2: 使用mysql的source命令
-mysql -u root -p ci_pae -e "source backend/database/migrations/add_policy_enhancements.sql"
-
-# 方法3: 使用cmd执行
-cmd /c "mysql -u root -p ci_pae < backend/database/migrations/add_policy_enhancements.sql"
-```
-
----
-
-## 🔧 后端服务层
-
-### 2. 政策服务模块
-**文件**: `backend/services/policyService.js`
-
-**核心方法**:
-
-#### `getPolicyList(filters)` - 获取政策列表
-- 参数: `{ type, city, year, keyword, page, pageSize }`
-- 查询: `v_policy_stats` 视图,支持多条件筛选
-- 返回: 气泡图所需的完整数据(policy_id, policy_name, county_count, interview_count等)
-
-#### `getPolicyDetail(policyId)` - 获取政策详情
-
-**查询策略**：多表联合查询 + 缓存表优化
-
-**涉及表**：`policies` + `rel_policy_county` + `counties` + `policy_resources` + `policy_interview_cache` + 多个指标表
-
-**返回结构**:
-```javascript
-{
-  policy: {}, // 政策基本信息
-  counties: [], // 覆盖县列表(含strength, adopt_year, notes)
-  resources: [], // 资源文件列表(含amount, beneficiary_count, year)
-  interviews: [], // 相关访谈列表(含relevance_score, matched_keywords)
-  indicator_effects: [] // 指标影响数据(6个指标的前后对比)
-}
-```
-
-**访谈获取逻辑（分两步）**：
-
-1. **第一步：从缓存表获取高相关度访谈**
-   ```sql
-   SELECT ... FROM policy_interview_cache pic
-   WHERE pic.policy_id = ? AND pic.relevance_score >= 4.0
-   ORDER BY pic.relevance_score DESC
-   LIMIT 20
-   ```
-   - 使用 `policy_interview_cache` 表，直接读取预计算的相关度
-   - 阈值：`relevance_score >= 4.0`（至少匹配1个关键词或基础分）
-
-2. **第二步：补充县域内其他访谈**（如果缓存不足20条）
-   ```sql
-   SELECT ... FROM interview_data id
-   WHERE c.county_id IN (政策覆盖的县)
-   AND id.data_id NOT IN (已获取的缓存访谈)
-   LIMIT 30
-   ```
-   - 按县域关联补充访谈，`relevance_score` 设为0
-   - 最终结果：缓存访谈（高分在前） + 县域访谈（补充）
-
-**指标影响分析机制**：
-
-**步骤1：确定时间分界点**
-```sql
-SELECT MIN(year) as min_year, MAX(year) as max_year
-FROM economic_indicators
-WHERE county_id IN (政策覆盖的县)
-```
-- 计算中位年份：`midYear = floor((minYear + maxYear) / 2)`
-- 示例：2015-2023年数据 → midYear = 2019
-
-**步骤2：前后期对比查询（6个指标）**
-
-| 指标 | 表名 | 字段 | 单位 |
-|-----|------|------|-----|
-| GDP总量 | economic_indicators | gdp | 亿元 |
-| 农村居民人均可支配收入 | economic_indicators | disp_income_rural | 元 |
-| 户籍人口 | population_indicators | registered_pop | 万人 |
-| 粮食产量 | agriculture_indicators | grain_yield | 万吨 |
-| 公路里程 | infrastructure_indicators | road_mileage | 公里 |
-| 小学数量 | edu_culture_indicators | primary_schools | 所 |
-
-**SQL模式**（以GDP为例）：
-```sql
-SELECT 
-  'gdp' as indicator,
-  'GDP总量' as name,
-  AVG(CASE WHEN year <= midYear THEN gdp END) as before_avg,
-  AVG(CASE WHEN year > midYear THEN gdp END) as after_avg,
-  '亿元' as unit
-FROM economic_indicators
-WHERE county_id IN (?)
-```
-
-**步骤3：计算变化率**
-```javascript
-const change_pct = ((after_avg - before_avg) / before_avg) * 100;
-const period = `${minYear}-${midYear} vs ${midYear+1}-${maxYear}`;
-```
-
-**返回格式**：
-```javascript
-[
-  {
-    indicator: 'gdp',
-    name: 'GDP总量',
-    before_avg: 125.50,
-    after_avg: 180.30,
-    unit: '亿元',
-    change_pct: 43.67,
-    period: '2015-2019 vs 2020-2023'
-  },
-  // ... 其他5个指标
-]
-```
-
-#### `getPolicyStats()` - 获取统计数据
-- 聚合维度: 政策类型、年份、城市、覆盖度
-- 用途: 筛选器选项填充、仪表盘统计卡片
-
-#### `getInterviewFullContent(dataId)` - 获取完整访谈
-- 单条访谈完整信息(含受访者、调研员、事件、关键词)
-
-#### `getCities()` - 获取城市列表
-- 从counties表提取所有城市,用于筛选器
-
----
-
-### 3. 政策控制器
-**文件**: `backend/controllers/policyController.js`
-
-**端点映射**:
-| HTTP方法 | 路径 | 控制器方法 | 说明 |
-|---------|------|-----------|------|
-| GET | `/api/policies` | `getPolicies` | 获取政策列表(支持query参数筛选) |
-| GET | `/api/policies/stats` | `getPolicyStats` | 获取统计数据 |
-| GET | `/api/policies/cities` | `getCities` | 获取城市列表 |
-| GET | `/api/policies/:id` | `getPolicyById` | 获取政策详情 |
-| GET | `/api/policies/interviews/:dataId` | `getInterviewFullContent` | 获取完整访谈 |
-
-**错误处理模式**:
-```javascript
-try {
-  const data = await policyService.someMethod(params);
-  res.json({ ok: true, data });
-} catch (error) {
-  console.error('错误:', error);
-  res.status(500).json({ ok: false, error: error.message });
-}
-```
-
----
-
-### 4. 路由配置
-**文件**: `backend/routes/policy.js`
-
-**路由定义顺序** (关键:避免`:id`捕获统计/城市路由):
-```javascript
-router.get('/stats', policyController.getPolicyStats);       // 1. 统计优先
-router.get('/cities', policyController.getCities);           // 2. 城市列表
-router.get('/interviews/:dataId', policyController.getInterviewFullContent); // 3. 特定访谈
-router.get('/', policyController.getPolicies);               // 4. 列表查询
-router.get('/:id', policyController.getPolicyById);          // 5. 详情最后(避免捕获stats/cities)
-```
-
-**注册到主路由** (`backend/routes/index.js`):
-```javascript
-const policyRoutes = require('./policy');
-router.use('/policies', policyRoutes);
-```
-
----
-
-## 🎨 前端实现
-
-### 5. API客户端封装
-**文件**: `frontend/src/api/policy.js`
-
-**方法列表**:
-```javascript
-getPolicies(params)              // 获取政策列表(支持type/city/year/keyword筛选)
-getPolicyDetail(policyId)        // 获取政策详情
-getPolicyStats()                 // 获取统计数据
-getInterviewFullContent(dataId)  // 获取完整访谈
-getCities()                      // 获取城市列表
-```
-
-**示例调用**:
-```javascript
-import { getPolicies, getPolicyDetail } from '@/api/policy';
-
-const res = await getPolicies({ 
-  type: 'agriculture', 
-  city: '呼和浩特市', 
-  page: 1, 
-  pageSize: 50 
-});
-
-if (res.ok) {
-  console.log(res.data.policies); // 政策列表数组
-}
-```
-
----
-
-### 6. 政策气泡可视化组件
-**文件**: `frontend/src/components/PolicyBubbles.vue`
-
-**技术栈**: Vue 3 Composition API + D3.js v7
-
-**可视化逻辑**:
-1. **气泡大小**: 使用`d3.scaleSqrt()`平方根比例尺映射`county_count`→半径(20-80px)
-2. **气泡颜色**: 根据`policy_type`映射到预定义色板
-   ```javascript
-   const policyTypeColors = {
-     agriculture: '#52c41a',        // 绿色-农业
-     medical: '#1890ff',            // 蓝色-医疗
-     education: '#722ed1',          // 紫色-教育
-     poverty_alleviation: '#fa8c16' // 橙色-扶贫
-   };
-   ```
-3. **辉光效果**: `interview_count > 0`的气泡应用SVG滤镜`url(#glow-filter)`
-4. **脉冲动画**: CSS动画`pulse 2s ease-in-out infinite`
-5. **力导向模拟**:
-   ```javascript
-   d3.forceSimulation(nodes)
-     .force('charge', d3.forceManyBody().strength(5))       // 微弱排斥
-     .force('center', d3.forceCenter(width/2, height/2))    // 中心引力
-     .force('collision', d3.forceCollide().radius(d => d.radius + 2)) // 碰撞检测
-   ```
-
-**交互功能**:
-- 拖拽气泡(drag behavior)
-- 悬浮显示tooltip(政策名称、类型、覆盖县数、访谈数)
-- 点击气泡触发`bubble-click`事件传递给父组件
-
-**Props**:
-| 属性 | 类型 | 必填 | 说明 |
-|-----|------|------|------|
-| policies | Array | ✅ | 政策数据数组 |
-| containerWidth | Number | ❌ | 容器宽度(默认自动获取) |
-| containerHeight | Number | ❌ | 容器高度(默认600) |
-
-**Emits**: `bubble-click(policy)` - 点击气泡时触发
-
----
-
-### 7. 政策详情抽屉组件
-**文件**: `frontend/src/components/PolicyDetailDrawer.vue`
-
-**布局**: Ant Design Vue Drawer(720px宽) + Tabs(5个标签页)
-
-**标签页结构**:
-
-#### Tab 1: 概览
-- 使用`a-descriptions`展示政策基本信息(名称、类型、发布机构、日期、覆盖范围等)
-- 政策描述长文本展示
-
-#### Tab 2: 覆盖县 (`counties.length`)
-- `a-list`展示县列表(分页10条/页)
-- 显示县名、强度标签(strength×100%)、采纳年份、备注
-
-#### Tab 3: 资源文件 (`resources.length`)
-- `a-list`展示文件列表(分页8条/页)
-- Avatar显示文件类型图标(PDF/DOC/XLS等)
-- 文件大小格式化显示(formatFileSize)
-- 下载按钮(当前为占位)
-
-#### Tab 4: 相关访谈 (`interviews.length`)
-- 使用`InterviewCard`子组件渲染(分页5条/页)
-- 点击"查看完整内容"按钮打开`a-modal`显示全文
-
-#### Tab 5: 指标影响 (`indicator_effects.length`)
-- 使用`IndicatorEffectChart`子组件渲染ECharts图表
-- 无数据时显示`a-empty`
-
-**数据加载**:
-- 使用`watchEffect`监听`props.visible`和`props.policyId`
-- 自动调用`getPolicyDetail(policyId)`获取完整数据
-
----
-
-### 8. 访谈卡片组件
-**文件**: `frontend/src/components/InterviewCard.vue`
-
-**功能**: 紧凑展示单条访谈信息
-
-**布局**:
-- Avatar: 根据`identity`(身份)显示不同颜色和图标
-- Title: 受访者姓名 + 身份标签 + 相关度标签(relevance_score×100%)
-- Meta: 访谈日期(图标📅)
-- Keywords: 关键词标签云(蓝色小标签)
-- Snippet: 内容摘要(前120字+`...`)
-- Action: "查看完整内容"按钮
-
-**身份颜色映射**:
-```javascript
-const identityColors = {
-  '村干部': '#1890ff',
-  '村民': '#52c41a',
-  '乡镇干部': '#722ed1',
-  '驻村干部': '#fa8c16',
-  '企业家': '#13c2c2',
-  '教师': '#eb2f96'
-};
-```
-
-**Props**: `interview` (访谈对象)  
-**Emits**: `view-full(data_id)` - 点击查看完整内容时触发
-
----
-
-### 9. 指标影响对比图组件
-**文件**: `frontend/src/components/IndicatorEffectChart.vue`
-
-**技术栈**: Vue 3 + ECharts 5.x
-
-**图表类型**: 柱状图(before/after对比) + 折线图(变化率)
-
-**配置亮点**:
-1. **双Y轴共享**: 左侧Y轴显示指标值,折线图复用同一Y轴
-2. **渐变色柱状图**: 实施后数据使用蓝色渐变(`LinearGradient`)
-3. **标签显示**: 柱子顶部显示值+变化率(如`1234\n(+12.3%)`)
-4. **Tooltip增强**: 自定义formatter显示前后对比和彩色变化率
-5. **响应式**: 监听window resize事件自动调整图表尺寸
-
-**数据格式**:
-```javascript
-effects: [
-  {
-    indicator_name: '人均收入',
-    before_value: 5000,
-    after_value: 8000,
-    change_percent: 60.00
-  }
-]
-```
-
----
-
-### 10. 经验模式库主页
-**文件**: `frontend/src/views/Patterns.vue`
-
-**布局结构**:
-
-#### 区域1: 页面头部
-- `a-page-header`: 标题+副标题+刷新按钮
-- 4个统计卡片(政策总数、覆盖县数、平均覆盖度、访谈记录)
-- 使用`a-statistic`组件展示数据和图标
-
-#### 区域2: 筛选工具栏
-- `a-form` inline布局
-- 4个筛选条件:
-  - 政策类型下拉(显示类型名+数量)
-  - 城市下拉
-  - 发布年份下拉(显示年份+数量)
-  - 关键词搜索框(支持回车查询)
-- 重置按钮
-
-#### 区域3: 气泡可视化区域
-- `PolicyBubbles`组件渲染
-- 标题带提示图标(说明气泡含义)
-- 自动监听`filters`变化重新查询
-
-#### 区域4: 详情抽屉(浮层)
-- `PolicyDetailDrawer`组件
-- 点击气泡时显示
-
-**数据流**:
-```
-onMounted → fetchStats + fetchCities + fetchPolicies
-   ↓
-filters change → handleFilterChange → fetchPolicies (自动查询)
-   ↓
-bubble click → handleBubbleClick → drawerVisible=true + selectedPolicyId=xxx
-   ↓
-PolicyDetailDrawer监听policyId → fetchPolicyDetail
-```
-
-**响应式设计**:
-- 移动端(<768px)时调整表单布局
-- 使用`@media`查询隐藏部分元素
-
----
-
-## 🎨 全局样式增强
-
-**文件**: `frontend/src/assets/styles/main.css`
-
-**新增特性**:
-1. **动画**:
-   - `@keyframes pulse`: 气泡脉冲(0%/100%缩放1, 50%缩放1.05)
-   - `@keyframes glow`: 辉光效果(阴影强度变化)
-   - `@keyframes spin`: 加载旋转
-2. **滚动条美化**: Webkit内核浏览器自定义滚动条样式
-3. **响应式断点辅助类**: `.hide-on-mobile`, `.hide-on-tablet`, `.hide-on-desktop`
-4. **卡片阴影层次**: `.card-shadow-sm/md/lg`
-5. **文本截断**: `.text-ellipsis`, `.text-ellipsis-2/3`
-6. **过渡效果**: `.fade-enter-active`, `.slide-enter-active`
-
----
-
-## 📦 依赖安装
-
-### 后端无需新增依赖
-已使用: `express`, `mysql2`, `dotenv`, `cors`, `body-parser`
-
-### 前端新增依赖
-```bash
-cd frontend
-npm install d3
-```
-
-**当前package.json**:
-```json
-{
-  "dependencies": {
-    "ant-design-vue": "^4.2.6",
-    "axios": "^1.4.0",
-    "d3": "^7.x.x",          // 新增
-    "echarts": "^6.0.0",
-    "marked": "^17.0.0",
-    "vue": "^3.2.0",
-    "vue-router": "^4.2.0"
-  }
-}
-```
-
----
-
-## 🚀 部署流程
-
-### 步骤1: 执行数据库迁移
-```powershell
-# 确保MySQL服务运行中,在项目根目录执行
-Get-Content backend/database/migrations/add_policy_enhancements.sql | mysql -u root -p ci_pae
-```
-
-**预期结果**:
-- `rel_policy_county`表新增`strength`, `adopt_year`, `notes`字段
-- 创建`v_policy_stats`视图
-- 创建`policy_keywords`和`policy_interview_cache`表
-- 插入初始关键词和缓存数据
-
-### 步骤2: 启动后端服务
-```bash
-cd backend
-npm run dev  # 使用nodemon监听文件变化
-```
-
-**验证**: 访问 `http://localhost:3001/api/policies` 应返回政策列表JSON
-
-### 步骤3: 安装前端依赖并启动
-```bash
-cd frontend
-npm install      # 确保d3已安装
-npm run dev      # 启动Vite开发服务器
-```
-
-**验证**: 访问 `http://localhost:5174/patterns` 应看到气泡可视化页面
-
-### 步骤4: 测试完整流程
-1. 打开经验模式库页面
-2. 验证4个统计卡片显示数据
-3. 尝试筛选条件(类型/城市/年份/关键词)
-4. 点击任意气泡打开详情抽屉
-5. 切换5个标签页验证数据加载
-6. 点击访谈卡片查看完整内容
-7. 验证指标影响图表渲染
-
----
-
-## 🐛 常见问题排查
-
-### 问题1: 气泡不显示
-**检查项**:
-- [ ] `policies`数组是否为空?查看Network面板`/api/policies`响应
-- [ ] D3.js是否成功安装?检查`node_modules/d3`
-- [ ] SVG容器尺寸是否正确?查看元素审查器
-
-### 问题2: 抽屉打开无数据
-**检查项**:
-- [ ] `policyId`是否正确传递?在`handleBubbleClick`中打印
-- [ ] 后端`/api/policies/:id`是否返回数据?查看Network
-- [ ] 是否存在CORS错误?检查浏览器Console
-
-### 问题3: 统计数据不准确
-**检查项**:
-- [ ] 数据库迁移脚本是否成功执行?检查表结构和视图
-- [ ] `v_policy_stats`视图数据是否正确?直接查询验证
-- [ ] 关键词和缓存表是否有初始数据?检查`policy_keywords`和`policy_interview_cache`
-
-### 问题4: 指标影响图表不渲染
-**检查项**:
-- [ ] `indicator_effects`数组是否有数据?当前为预留字段,可能返回空数组
-- [ ] ECharts是否正确初始化?检查`chartRef.value`是否存在
-- [ ] 容器高度是否为0?使用开发者工具检查
-
----
-
-## 📊 性能优化建议
-
-### 数据库层
-1. **索引优化**: 已添加`policy_type`, `publish_date`, `interview_date`索引
-2. **视图缓存**: 考虑使用物化视图或定期更新缓存表
-3. **分页查询**: 前端默认100条,生产环境建议降低到50
-
-### 后端层
-1. **查询优化**: `getPolicyDetail`的7表联合查询可能较慢,考虑:
-   - 分步查询改为并行Promise.all
-   - 使用Redis缓存热点政策详情
-2. **API限流**: 添加`express-rate-limit`中间件防止滥用
-
-### 前端层
-1. **D3渲染优化**:
-   - 数据量>200时启用Canvas渲染模式
-   - 添加虚拟滚动支持大数据集
-2. **图片懒加载**: 资源文件缩略图使用`IntersectionObserver`
-3. **组件懒加载**: 使用Vue的`defineAsyncComponent`加载抽屉和图表
-
----
-
-## 🔐 安全注意事项
-
-1. **SQL注入防护**: 当前使用参数化查询(`pool.query(sql, params)`),已基本防护
-2. **XSS防护**: Vue模板默认转义,访谈内容使用`v-text`或`{{}}`输出
-3. **文件下载**: 资源文件下载功能当前为占位,实现时需验证文件路径防止目录遍历
-4. **API鉴权**: 当前政策API为公开访问,生产环境建议添加token验证
-
----
-
-## 📈 未来扩展方向
-
-### 功能扩展
-1. **高级筛选**:
-   - 多选政策类型
-   - 覆盖县数范围滑块筛选
-   - 时间范围选择器
-2. **数据导出**:
-   - 导出当前筛选结果为CSV/Excel
-   - 生成政策分析报告PDF
-3. **协作功能**:
-   - 为政策添加标注和评论
-   - 分享特定筛选条件的URL
-
-### 可视化增强
-1. **多视图模式**:
-   - 力导向图(当前)
-   - 树状图(按类型层级)
-   - 时间轴视图(按年份排列)
-   - 地图视图(县级热力图)
-2. **交互增强**:
-   - 气泡间连线显示政策关联
-   - 双击气泡缩放聚焦
-   - 搜索高亮匹配气泡
-3. **动画改进**:
-   - 气泡入场动画(从中心扩散)
-   - 筛选过渡动画(平滑淡入淡出)
-
-### 智能分析
-1. **NLP增强**:
-   - 自动提取政策核心要素
-   - 访谈关键词云
-   - 情感分析(受访者态度)
-2. **推荐系统**:
-   - 相似政策推荐
-   - 基于访谈的政策效果预测
-3. **知识图谱**:
-   - 政策-县-访谈-指标关系网络
-   - 实体抽取和关系推理
-
----
-
-## 📝 API文档速查
-
-### GET /api/policies
-**查询参数**:
-```
-type: string (agriculture|medical|education|poverty_alleviation)
-city: string (城市名称)
-year: string (发布年份)
-keyword: string (关键词)
-page: number (页码,默认1)
-pageSize: number (每页数量,默认20)
-```
-**响应**:
-```json
-{
-  "ok": true,
-  "data": {
-    "policies": [
-      {
-        "policy_id": "POL001",
-        "policy_name": "精准扶贫政策",
-        "policy_type": "poverty_alleviation",
-        "type_name": "扶贫政策",
-        "county_count": 25,
-        "interview_count": 12,
-        "resource_count": 5,
-        "publish_year": 2015
-      }
-    ],
-    "total": 100,
-    "page": 1,
-    "pageSize": 20
-  }
-}
-```
-
-### GET /api/policies/stats
-**响应**:
-```json
-{
-  "ok": true,
-  "data": {
-    "by_type": [
-      { "policy_type": "agriculture", "type_name": "农业政策", "count": 15 }
-    ],
-    "coverage": {
-      "total_policies": 50,
-      "total_counties": 31,
-      "avg_coverage": 0.68
-    },
-    "by_year": [
-      { "publish_year": "2015", "count": 20 }
-    ],
-    "by_city": [
-      { "city": "呼和浩特市", "count": 10 }
-    ]
-  }
-}
-```
-
-### GET /api/policies/:id
-**响应**:
-```json
-{
-  "ok": true,
-  "data": {
-    "policy": { "policy_id": "POL001", "policy_name": "...", "description": "..." },
-    "counties": [
-      { "county_id": "NMG000001", "county_name": "新城区", "strength": 0.85, "adopt_year": 2016 }
-    ],
-    "resources": [
-      { "resource_id": "RES001", "file_name": "政策文件.pdf", "file_type": "pdf", "file_size": 1048576 }
-    ],
-    "interviews": [
-      { "data_id": "DAT001", "interviewee_name": "张三", "identity": "村干部", "relevance_score": 0.92 }
-    ],
-    "indicator_effects": [
-      { "indicator_name": "人均收入", "before_value": 5000, "after_value": 8000, "change_percent": 60 }
-    ]
-  }
-}
-```
-
-### GET /api/policies/cities
-**响应**:
-```json
-{
-  "ok": true,
-  "data": ["呼和浩特市", "包头市", "鄂尔多斯市"]
-}
-```
-
-### GET /api/policies/interviews/:dataId
-**响应**:
-```json
-{
-  "ok": true,
-  "data": {
-    "data_id": "DAT001",
-    "interviewee_name": "张三",
-    "identity": "村干部",
-    "county_name": "新城区",
-    "city": "呼和浩特市",
-    "interview_date": "2018-06-15",
-    "researcher_name": "李四",
-    "content": "完整访谈内容...",
-    "keywords": "扶贫,产业,收入",
-    "event_names": "产业扶贫启动,合作社成立"
-  }
-}
-```
-
----
-
-## ✅ 验收清单
-
-### 数据库
-- [x] 迁移脚本成功执行
-- [x] `v_policy_stats`视图查询返回正确数据
-- [x] `policy_keywords`表有初始��据
-- [x] `policy_interview_cache`表有关联数据
-
-### 后端
-- [x] 5个API端点正常响应
-- [x] 错误处理返回正确状态码
-- [x] 查询支持筛选参数
-- [x] 详情接口返回完整数据结构
-
-### 前端
-- [x] 气泡可视化正常渲染
-- [x] 筛选器自动查询生效
-- [x] 抽屉5个标签页正常切换
-- [x] 访谈卡片显示正确
-- [x] 指标图表渲染(有数据时)
-- [x] 响应式布局适配移动端
-
-### 交互体验
-- [x] 气泡可拖拽
-- [x] 悬浮显示tooltip
-- [x] 点击气泡打开抽屉
-- [x] 统计卡片数据实时更新
-- [x] 加载状态反馈(loading spin)
-
----
-
-## 📞 技术支持
-
-如遇到问题,请检查以下内容后提交Issue:
-1. 浏览器Console错误日志(F12)
-2. Network面板API响应内容
-3. 后端Terminal错误输出
-4. 数据库查询结果(直接SQL验证)
-
-**项目结构参考**: 参见根目录`.github/copilot-instructions.md`
-
----
-
-**生成时间**: 2025-01-XX  
-**版本**: v1.0.0  
-**维护者**: CI-PAE开发团队

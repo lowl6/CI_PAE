@@ -40,4 +40,39 @@ import IntelligentQuery from '../components/IntelligentQuery.vue';
   color: #666;
   font-size: 16px;
 }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .query-page {
+    padding: 12px;
+  }
+  
+  .page-header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+  }
+  
+  .page-header h2 {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+  
+  .page-header p {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .query-page {
+    padding: 8px;
+  }
+  
+  .page-header h2 {
+    font-size: 18px;
+  }
+  
+  .page-header p {
+    font-size: 13px;
+  }
+}
 </style>

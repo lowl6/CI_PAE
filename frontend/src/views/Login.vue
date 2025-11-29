@@ -437,4 +437,145 @@ export default {
   border-color: #e67e22;
 }
 
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .login-container {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 10vh;
+  }
+  
+  .login-box {
+    max-width: 100%;
+    padding: 24px 20px;
+    margin: 0 16px;
+  }
+  
+  .login-header {
+    margin-bottom: 24px;
+  }
+  
+  .login-header h2 {
+    font-size: 22px;
+  }
+  
+  .login-header p {
+    font-size: 14px;
+  }
+  
+  .form-group {
+    margin-bottom: 16px;
+  }
+  
+  .form-group label {
+    font-size: 14px;
+    margin-bottom: 5px;
+  }
+  
+  .form-group input,
+  .role-select {
+    padding: 12px;
+    font-size: 16px; /* 保持16px防止iOS自动缩放 */
+    height: 44px;
+  }
+  
+  .login-button,
+  .register-button {
+    padding: 12px;
+    font-size: 16px;
+    height: 44px;
+  }
+  
+  .register-link {
+    margin-top: 16px;
+    font-size: 14px;
+  }
+  
+  /* 注册弹窗优化 */
+  .register-overlay {
+    padding: 16px;
+  }
+  
+  .register-box {
+    max-width: 100%;
+    padding: 20px;
+    margin: 0;
+  }
+  
+  .register-header h2 {
+    font-size: 20px;
+  }
+  
+  .close-button {
+    font-size: 20px;
+  }
+  
+  .register-form {
+    margin-bottom: 12px;
+  }
+  
+  .error-message,
+  .register-message {
+    font-size: 14px;
+    padding: 8px;
+  }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+  .login-container {
+    padding: 12px;
+    padding-top: 8vh;
+  }
+  
+  .login-box {
+    padding: 20px 16px;
+    margin: 0 12px;
+  }
+  
+  .login-header h2 {
+    font-size: 20px;
+  }
+  
+  .login-header p {
+    font-size: 13px;
+  }
+  
+  .form-group input,
+  .role-select,
+  .login-button,
+  .register-button {
+    height: 40px;
+    padding: 10px;
+    font-size: 15px;
+  }
+  
+  .register-box {
+    padding: 16px;
+  }
+}
+
+/* 横屏优化 */
+@media (max-height: 600px) and (orientation: landscape) {
+  .login-container {
+    padding-top: 20px;
+  }
+  
+  .login-box {
+    padding: 20px;
+  }
+  
+  .login-header {
+    margin-bottom: 16px;
+  }
+  
+  .form-group {
+    margin-bottom: 12px;
+  }
+  
+  .register-link {
+    margin-top: 12px;
+  }
+}
+
 </style>

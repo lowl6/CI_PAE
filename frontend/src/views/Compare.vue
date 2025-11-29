@@ -549,4 +549,111 @@ export default {
   color: #1890ff;
   text-align: center;
 }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .compare-page {
+    padding: 12px;
+  }
+  
+  /* 筛选面板优化 */
+  .filter-panel {
+    margin-bottom: 12px;
+  }
+  
+  .filter-panel :deep(.ant-row) {
+    flex-direction: column;
+  }
+  
+  .filter-panel :deep(.ant-col) {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 12px;
+  }
+  
+  .filter-panel :deep(.ant-select),
+  .filter-panel :deep(.ant-input),
+  .filter-panel :deep(.ant-btn) {
+    width: 100%;
+  }
+  
+  .filter-panel :deep(.ant-select-selector),
+  .filter-panel :deep(.ant-input),
+  .filter-panel :deep(.ant-btn) {
+    height: 44px !important;
+    font-size: 15px;
+  }
+  
+  /* 指标网格改为单列 */
+  .indicators-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  
+  .indicator-chart-card {
+    padding: 12px;
+  }
+  
+  .indicator-title {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  
+  /* 图表容器调整 */
+  :deep(.chart-container) {
+    height: 250px !important;
+  }
+  
+  /* 卡片标题优化 */
+  :deep(.ant-card-head-title) {
+    font-size: 15px;
+  }
+  
+  /* 统计数据优化 */
+  :deep(.ant-statistic) {
+    text-align: center;
+  }
+  
+  :deep(.ant-statistic-title) {
+    font-size: 12px;
+  }
+  
+  :deep(.ant-statistic-content) {
+    font-size: 18px;
+  }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+  .compare-page {
+    padding: 8px;
+  }
+  
+  .filter-panel :deep(.ant-select-selector),
+  .filter-panel :deep(.ant-input),
+  .filter-panel :deep(.ant-btn) {
+    height: 40px !important;
+    font-size: 14px;
+  }
+  
+  .indicators-grid {
+    gap: 8px;
+  }
+  
+  .indicator-chart-card {
+    padding: 10px;
+  }
+  
+  :deep(.chart-container) {
+    height: 220px !important;
+  }
+}
+
+/* 平板横屏 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .indicators-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 </style>

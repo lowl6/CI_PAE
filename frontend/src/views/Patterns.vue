@@ -457,15 +457,97 @@ export default {
   border-radius: 8px;
 }
 
-/* 响应式布局 */
+/* 响应式布局 - 手机 */
 @media (max-width: 768px) {
   .patterns-page {
-    padding: 12px;
+    padding: 8px;
+  }
+  
+  .page-header {
+    padding: 12px 16px;
+    margin-bottom: 12px;
+  }
+  
+  .page-header h1 {
+    font-size: 18px;
+  }
+  
+  .page-header p {
+    font-size: 13px;
+    margin-bottom: 0;
+  }
+  
+  .filter-card {
+    margin-bottom: 12px;
+  }
+  
+  /* 筛选表单优化 */
+  :deep(.ant-form-inline) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   
   :deep(.ant-form-inline .ant-form-item) {
-    margin-right: 8px !important;
-    margin-bottom: 8px;
+    width: 100%;
+    margin-right: 0 !important;
+    margin-bottom: 0;
+  }
+  
+  :deep(.ant-form-inline .ant-select),
+  :deep(.ant-form-inline .ant-input),
+  :deep(.ant-form-inline .ant-btn) {
+    width: 100%;
+  }
+  
+  :deep(.ant-select-selector),
+  :deep(.ant-input),
+  :deep(.ant-btn) {
+    height: 44px !important;
+    font-size: 15px;
+  }
+  
+  /* 气泡卡片优化 */
+  .bubbles-card {
+    border-radius: 6px;
+  }
+  
+  /* 气泡容器调整 */
+  :deep(.bubble-container) {
+    height: 400px !important;
+    padding: 8px;
+  }
+  
+  /* 气泡大小调整 */
+  :deep(.policy-bubble) {
+    font-size: 11px !important;
+    min-width: 60px !important;
+    min-height: 60px !important;
+  }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+  .patterns-page {
+    padding: 6px;
+  }
+  
+  :deep(.ant-select-selector),
+  :deep(.ant-input),
+  :deep(.ant-btn) {
+    height: 40px !important;
+    font-size: 14px;
+  }
+  
+  :deep(.bubble-container) {
+    height: 350px !important;
+  }
+}
+
+/* 平板横屏 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .patterns-page {
+    padding: 16px;
   }
 }
 </style>
