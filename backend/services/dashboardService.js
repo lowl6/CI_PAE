@@ -438,6 +438,82 @@ class DashboardService {
             cities: cities
         };
     }
+
+
+
+   async getCityDetail(cityName) {
+        return await withDatabase(async (connection) => {
+            try {
+                console.log('🔍 查询盟市详情:', cityName);
+                
+                // 1. 查询该盟市的总人口、县数量和贫困县数量
+                const [cityStats] = await connection.query(`
+                    SELECT 
+                        c.city,
+                        COUNT(DISTINCT c.county_id) as total_counties,
+                        SUM(CASE WHEN c.is_poverty_alleviated = 0 THEN 1 ELSE 0 END) as poverty_counties,
+                        COALESCE(SUM(pi.registered_pop), 0) as total_population
+                    FROM counties c
+                    LEFT JOIN population_indicators pi ON c.county_id = pi.county_id 
+                    AND pi.year = (SELECT MAX(year) FROM population_indicators)
+                    WHERE c.city = ?
+                    GROUP BY c.city
+                `, [cityName]);
+
+                if (cityStats.length === 0) {
+                    console.log('⚠️ 未找到盟市数据:', cityName);
+                    return {
+                        city: {
+                            name: cityName,
+                            totalPopulation: 0,
+                            totalCounties: 0,
+                            povertyCounties: 0
+                        },
+                        counties: []
+                    };
+                }
+
+                const cityData = cityStats[0];
+                console.log('✅ 盟市统计数据:', cityData);
+
+                // 2. 查询该盟市下的所有县（包括人口和贫困状态）
+                const [counties] = await connection.query(`
+                    SELECT 
+                        c.county_id as id,
+                        c.county_name as name,
+                        COALESCE(pi.registered_pop, 0) as population,
+                        c.is_poverty_alleviated as is_poverty
+                    FROM counties c
+                    LEFT JOIN population_indicators pi ON c.county_id = pi.county_id 
+                    AND pi.year = (SELECT MAX(year) FROM population_indicators)
+                    WHERE c.city = ?
+                    ORDER BY c.county_name
+                `, [cityName]);
+
+                console.log('✅ 县列表数据:', counties);
+
+                return {
+                    city: {
+                        name: cityData.city,
+                        totalPopulation: cityData.total_population || 0,
+                        totalCounties: cityData.total_counties || 0,
+                        povertyCounties: cityData.poverty_counties || 0
+                    },
+                    counties: counties.map(county => ({
+                        id: county.id,
+                        name: county.name,
+                        population: county.population || 0,
+                        isPoverty: county.is_poverty === 0 // 假设0表示贫困县
+                    }))
+                };
+
+            } catch (error) {
+                console.error('❌ 查询盟市详情失败:', error);
+                // 返回空数据，让前端知道查询失败
+                throw new Error(`数据库查询失败: ${error.message}`);
+            }
+        });
+    }
 }
 
 module.exports = new DashboardService();
