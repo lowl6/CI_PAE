@@ -103,6 +103,49 @@ class DashboardController {
       });
     }
   }
+
+  /**
+ * 获取盟市详情
+ */
+async getCityDetail(req, res) {
+    try {
+        const cityName = req.params.cityName;
+        console.log('获取盟市详情:', cityName);
+        
+        const data = await dashboardService.getCityDetail(cityName);
+        res.json({
+            code: 200,
+            message: 'success',
+            data: data
+        });
+    } catch (error) {
+        console.error('获取盟市详情失败:', error);
+        res.status(500).json({
+            code: 500,
+            message: '获取盟市详情失败',
+            data: null
+        });
+    }
 }
+
+async getCitiesSummary(req, res) {
+    try {
+      const data = await dashboardService.getCitiesSummary();
+      res.json({
+        code: 200,
+        message: 'success',
+        data: data
+      });
+    } catch (error) {
+      console.error('获取盟市汇总数据失败:', error);
+      res.status(500).json({
+        code: 500,
+        message: '获取盟市汇总数据失败: ' + error.message,
+        data: null
+      });
+    }
+  }
+}
+
 
 module.exports = new DashboardController();

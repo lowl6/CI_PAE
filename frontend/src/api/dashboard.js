@@ -31,3 +31,25 @@ export function getStatisticsOverview() {
     method: 'get'
   })
 }
+
+// 新增API方法
+// export function getCityDetail(cityId) {
+//     return request({
+//         url: `/api/dashboard/city/${cityId}/detail`,
+//         method: 'get'
+//     });
+// }
+
+export function getCitiesSummary() {
+    return request({
+        url: '/api/dashboard/cities/summary',
+        method: 'get'
+    });
+}
+
+export function getCityDetail(cityName) {
+    return request({
+        url: `/api/dashboard/city/${encodeURIComponent(cityName)}`,
+        method: 'get'
+    });
+}
